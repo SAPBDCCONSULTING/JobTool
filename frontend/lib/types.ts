@@ -6,6 +6,8 @@ export interface Job {
   companyName: string;
   country: string;
   location?: string | null;
+  jobUrl?: string | null;
+  companyUrl?: string | null;
   domain?: string | null;
   aiStatus: AiStatus;
   confidence: number | null;
@@ -68,7 +70,9 @@ export interface StatsResponse {
 }
 
 export interface JobFilters {
+  region?: string;
   country?: string;
+  jobWebsite?: string;
   minConfidence?: number;
   domain?: string;
   companyName?: string;

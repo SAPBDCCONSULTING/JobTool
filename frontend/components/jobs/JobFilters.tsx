@@ -44,18 +44,6 @@ export function JobFiltersBar({ filters, onChange }: JobFiltersProps) {
           </div>
         </div>
 
-        {/* Country */}
-        <div className="min-w-[140px]">
-          <label className="block text-xs font-medium text-slate-500 mb-1.5">Country</label>
-          <input
-            type="text"
-            value={filters.country ?? ''}
-            onChange={(e) => update({ country: e.target.value || undefined })}
-            placeholder="e.g. Saudi Arabia"
-            className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent transition-all"
-          />
-        </div>
-
         {/* Domain */}
         <div className="min-w-[150px]">
           <label className="block text-xs font-medium text-slate-500 mb-1.5">Domain</label>
@@ -106,12 +94,18 @@ export function JobFiltersBar({ filters, onChange }: JobFiltersProps) {
           />
         </div>
 
-        {/* Clear */}
-        {(filters.companyName || filters.country || filters.domain || filters.aiStatus || filters.minConfidence) && (
+        {/* Clear (keeps left-side region/country/website selection) */}
+        {(filters.companyName || filters.domain || filters.aiStatus || filters.minConfidence) && (
           <button
             onClick={() => {
               setConfidenceDisplay(0);
-              onChange({ page: 1, limit: filters.limit });
+              onChange({
+                page: 1,
+                limit: filters.limit,
+                region: filters.region,
+                country: filters.country,
+                jobWebsite: filters.jobWebsite,
+              });
             }}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-500 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
           >

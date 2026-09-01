@@ -71,3 +71,49 @@ export async function triggerSearch(
     body: JSON.stringify({ keyword, location }),
   });
 }
+
+// ─── Country Scrape ───────────────────────────────────────────
+export interface CountryScrapeResult {
+  status: 'queued';
+  message: string;
+  country: string;
+  website: string;
+  keyword: string;
+}
+
+export async function triggerCountryScrape(
+  country: string,
+  website: string,
+  keyword: string,
+): Promise<CountryScrapeResult> {
+  if (USE_DEMO) {
+    await new Promise((r) => setTimeout(r, 800));
+    return {
+      status: 'queued',
+      message: `[Demo] Scraping "${keyword}" from ${website} (${country}) simulated.`,
+      country,
+      website,
+      keyword,
+    };
+  }
+  return apiFetch<CountryScrapeResult>('/api/scrape-country', {
+    method: 'POST',
+    body: JSON.stringify({ country, website, keyword }),
+  });
+}
+
+export interface ScrapeStatusResponse {
+  phase: 'idle' | 'scraping' | 'processing' | 'classifying' | 'done' | 'error';
+  message?: string;
+  itemsFound?: number;
+  itemsProcessed?: number;
+}
+
+export async function fetchScrapeStatus(
+  country: string,
+  website: string,
+): Promise<ScrapeStatusResponse> {
+  return apiFetch<ScrapeStatusResponse>(
+    `/api/scrape-country/status?country=${encodeURIComponent(country)}&website=${encodeURIComponent(website)}`,
+  );
+}

@@ -2,35 +2,32 @@
 
 import { useState } from 'react';
 import { triggerSearch } from '@/lib/api';
+import type { SearchResult } from '@/lib/types';
 
 interface SearchFormProps {
-  onSuccess?: (message: string) => void;
+  onSuccess?: (result: SearchResult) => void;
 }
 
 export function SearchForm({ onSuccess }: SearchFormProps) {
   const [keyword, setKeyword] = useState('');
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!keyword.trim() || !location.trim()) return;
 
     setLoading(true);
-    setResult(null);
+    setError(null);
 
     try {
       const res = await triggerSearch(keyword.trim(), location.trim());
-      setResult({ type: 'success', message: res.message });
-      onSuccess?.(res.message);
+      onSuccess?.(res);
       setKeyword('');
       setLocation('');
     } catch (err) {
-      setResult({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Failed to trigger search',
-      });
+      setError(err instanceof Error ? err.message : 'Failed to trigger search');
     } finally {
       setLoading(false);
     }
@@ -103,15 +100,9 @@ export function SearchForm({ onSuccess }: SearchFormProps) {
         </button>
       </form>
 
-      {result && (
-        <div
-          className={`mt-3 px-4 py-3 rounded-xl text-xs font-medium ${
-            result.type === 'success'
-              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-              : 'bg-red-50 text-red-700 border border-red-200'
-          }`}
-        >
-          {result.message}
+      {error && (
+        <div className="mt-3 px-4 py-3 rounded-xl text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+          {error}
         </div>
       )}
     </div>

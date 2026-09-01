@@ -76,9 +76,21 @@ export function JobsTable({ jobs, loading }: JobsTableProps) {
                 className="hover:bg-indigo-50/30 transition-colors group"
               >
                 <td className="px-6 py-4">
-                  <div className="font-medium text-slate-800 text-sm leading-tight max-w-[280px]">
-                    {job.jobTitle}
-                  </div>
+                  {job.jobUrl ? (
+                    <a
+                      href={job.jobUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-indigo-700 hover:text-indigo-800 hover:underline text-sm leading-tight max-w-[280px] inline-block"
+                      title={job.jobUrl}
+                    >
+                      {job.jobTitle}
+                    </a>
+                  ) : (
+                    <div className="font-medium text-slate-800 text-sm leading-tight max-w-[280px]">
+                      {job.jobTitle}
+                    </div>
+                  )}
                   {job.aiReason && (
                     <div
                       className="text-xs text-slate-400 mt-1 max-w-[280px] truncate opacity-0 group-hover:opacity-100 transition-opacity"
@@ -89,7 +101,18 @@ export function JobsTable({ jobs, loading }: JobsTableProps) {
                   )}
                 </td>
                 <td className="px-4 py-4">
-                  <span className="text-sm font-medium text-slate-700">{job.companyName}</span>
+                  {job.companyUrl ? (
+                    <a
+                      href={job.companyUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-medium text-slate-700 hover:text-indigo-700 hover:underline"
+                    >
+                      {job.companyName}
+                    </a>
+                  ) : (
+                    <span className="text-sm font-medium text-slate-700">{job.companyName}</span>
+                  )}
                 </td>
                 <td className="px-4 py-4">
                   <span className="text-sm text-slate-600">{job.country}</span>

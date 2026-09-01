@@ -35,7 +35,8 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
     }),
     prisma.cleanJob.findMany({
       take: 8,
-      orderBy: { createdAt: 'desc' },
+      where: { aiStatus: 'DONE' },
+      orderBy: [{ confidence: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       select: {
         id: true,
         jobTitle: true,

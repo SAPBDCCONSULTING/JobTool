@@ -6,6 +6,7 @@ import type {
   Company,
   JobFilters,
 } from '../types';
+import { EUROPE_COUNTRIES } from '../regions';
 
 // ─── Demo Jobs ────────────────────────────────────────────────
 const ALL_DEMO_JOBS: Job[] = [
@@ -307,6 +308,118 @@ const ALL_DEMO_JOBS: Job[] = [
     createdAt: new Date(Date.now() - 18 * 3600000).toISOString(),
     aiProcessedAt: new Date(Date.now() - 17 * 3600000).toISOString(),
   },
+  {
+    id: '19',
+    jobTitle: 'SAP S/4HANA Consultant',
+    companyName: 'Capgemini',
+    country: 'Germany',
+    location: 'Munich, Germany',
+    domain: 'SAP',
+    aiStatus: 'DONE',
+    confidence: 0.93,
+    aiReason: 'SAP S/4HANA role on StepStone indicates active enterprise transformation in Germany.',
+    searchString: 'sap',
+    createdAt: new Date(Date.now() - 19 * 3600000).toISOString(),
+    aiProcessedAt: new Date(Date.now() - 18 * 3600000).toISOString(),
+  },
+  {
+    id: '20',
+    jobTitle: 'Cloud Platform Engineer',
+    companyName: 'OVHcloud',
+    country: 'France',
+    location: 'Paris, France',
+    domain: 'Cloud',
+    aiStatus: 'DONE',
+    confidence: 0.86,
+    aiReason: 'Cloud platform engineering role signals infrastructure investment in the French market.',
+    searchString: 'cloud',
+    createdAt: new Date(Date.now() - 20 * 3600000).toISOString(),
+    aiProcessedAt: new Date(Date.now() - 19 * 3600000).toISOString(),
+  },
+  {
+    id: '21',
+    jobTitle: 'ERP Implementation Manager',
+    companyName: 'Accenture',
+    country: 'United Kingdom',
+    location: 'London, United Kingdom',
+    domain: 'ERP',
+    aiStatus: 'DONE',
+    confidence: 0.9,
+    aiReason: 'ERP implementation leadership role sourced via Reed indicates UK enterprise demand.',
+    searchString: 'erp',
+    createdAt: new Date(Date.now() - 21 * 3600000).toISOString(),
+    aiProcessedAt: new Date(Date.now() - 20 * 3600000).toISOString(),
+  },
+  {
+    id: '22',
+    jobTitle: 'Data Analytics Lead',
+    companyName: 'ING',
+    country: 'The Netherlands',
+    location: 'Amsterdam, Netherlands',
+    domain: 'Data & Analytics',
+    aiStatus: 'DONE',
+    confidence: 0.84,
+    aiReason: 'Analytics leadership at a major bank signals continued data platform investment.',
+    searchString: 'analytics',
+    createdAt: new Date(Date.now() - 22 * 3600000).toISOString(),
+    aiProcessedAt: new Date(Date.now() - 21 * 3600000).toISOString(),
+  },
+  {
+    id: '23',
+    jobTitle: 'SAP SuccessFactors Consultant',
+    companyName: 'Deloitte',
+    country: 'Ireland',
+    location: 'Dublin, Ireland',
+    domain: 'SAP',
+    aiStatus: 'DONE',
+    confidence: 0.88,
+    aiReason: 'SuccessFactors role on jobs.ie indicates HR transformation hiring in Ireland.',
+    searchString: 'sap',
+    createdAt: new Date(Date.now() - 23 * 3600000).toISOString(),
+    aiProcessedAt: new Date(Date.now() - 22 * 3600000).toISOString(),
+  },
+  {
+    id: '24',
+    jobTitle: 'Azure Cloud Architect',
+    companyName: 'Microsoft',
+    country: 'Poland',
+    location: 'Warsaw, Poland',
+    domain: 'Cloud',
+    aiStatus: 'DONE',
+    confidence: 0.91,
+    aiReason: 'Azure architect role in Poland signals regional cloud delivery capacity growth.',
+    searchString: 'cloud architect',
+    createdAt: new Date(Date.now() - 24 * 3600000).toISOString(),
+    aiProcessedAt: new Date(Date.now() - 23 * 3600000).toISOString(),
+  },
+  {
+    id: '25',
+    jobTitle: 'SAP ABAP Developer',
+    companyName: 'IBM',
+    country: 'Spain',
+    location: 'Madrid, Spain',
+    domain: 'SAP',
+    aiStatus: 'PENDING',
+    confidence: null,
+    aiReason: null,
+    searchString: 'sap',
+    createdAt: new Date(Date.now() - 25 * 3600000).toISOString(),
+    aiProcessedAt: null,
+  },
+  {
+    id: '26',
+    jobTitle: 'Power BI Specialist',
+    companyName: 'KPMG',
+    country: 'Sweden',
+    location: 'Stockholm, Sweden',
+    domain: 'Data & Analytics',
+    aiStatus: 'DONE',
+    confidence: 0.79,
+    aiReason: 'Power BI specialist role indicates BI modernization demand in the Nordic market.',
+    searchString: 'analytics',
+    createdAt: new Date(Date.now() - 26 * 3600000).toISOString(),
+    aiProcessedAt: new Date(Date.now() - 25 * 3600000).toISOString(),
+  },
 ];
 
 // ─── Demo Companies ───────────────────────────────────────────
@@ -321,11 +434,12 @@ const ALL_DEMO_COMPANIES: Company[] = [
   { companyName: 'Saudi Aramco', country: 'Saudi Arabia', jobCount: 17, avgConfidence: 0.86, topDomain: 'Data & Analytics' },
   { companyName: 'Oracle', country: 'Saudi Arabia', jobCount: 15, avgConfidence: 0.79, topDomain: 'ERP' },
   { companyName: 'Microsoft', country: 'UAE', jobCount: 14, avgConfidence: 0.9, topDomain: 'Cloud' },
-  { companyName: 'Capgemini', country: 'Saudi Arabia', jobCount: 12, avgConfidence: 0.77, topDomain: 'Data & Analytics' },
-  { companyName: 'Tata Consultancy Services', country: 'Kuwait', jobCount: 11, avgConfidence: 0.8, topDomain: 'SAP' },
-  { companyName: 'STC', country: 'Saudi Arabia', jobCount: 9, avgConfidence: 0.76, topDomain: 'Cloud' },
-  { companyName: 'Wipro', country: 'UAE', jobCount: 8, avgConfidence: 0.75, topDomain: 'Cloud' },
-  { companyName: 'NTT Data', country: 'Saudi Arabia', jobCount: 7, avgConfidence: 0.78, topDomain: 'SAP' },
+  { companyName: 'Capgemini', country: 'Germany', jobCount: 12, avgConfidence: 0.93, topDomain: 'SAP' },
+  { companyName: 'OVHcloud', country: 'France', jobCount: 9, avgConfidence: 0.86, topDomain: 'Cloud' },
+  { companyName: 'Accenture', country: 'United Kingdom', jobCount: 11, avgConfidence: 0.9, topDomain: 'ERP' },
+  { companyName: 'ING', country: 'The Netherlands', jobCount: 8, avgConfidence: 0.84, topDomain: 'Data & Analytics' },
+  { companyName: 'Deloitte', country: 'Ireland', jobCount: 7, avgConfidence: 0.88, topDomain: 'SAP' },
+  { companyName: 'Microsoft', country: 'Poland', jobCount: 10, avgConfidence: 0.91, topDomain: 'Cloud' },
 ];
 
 // ─── Demo Stats ───────────────────────────────────────────────
@@ -338,9 +452,12 @@ export const demoStats: StatsResponse = {
   countries: [
     { name: 'Saudi Arabia', count: 112 },
     { name: 'UAE', count: 48 },
-    { name: 'Qatar', count: 18 },
-    { name: 'Kuwait', count: 9 },
-    { name: 'Bahrain', count: 6 },
+    { name: 'Germany', count: 22 },
+    { name: 'United Kingdom', count: 18 },
+    { name: 'France', count: 14 },
+    { name: 'Poland', count: 12 },
+    { name: 'Ireland', count: 9 },
+    { name: 'The Netherlands', count: 8 },
   ],
   domains: [
     { name: 'SAP', count: 72 },
@@ -368,7 +485,11 @@ export function getDemoJobs(filters: JobFilters): JobsResponse {
     jobs = jobs.filter((j) =>
       j.country.toLowerCase().includes(filters.country!.toLowerCase()),
     );
+  } else if (filters.region === 'Europe') {
+    const europe = new Set(EUROPE_COUNTRIES.map((c) => c.toLowerCase()));
+    jobs = jobs.filter((j) => europe.has(j.country.toLowerCase()));
   }
+
   if (filters.domain) {
     jobs = jobs.filter((j) =>
       j.domain?.toLowerCase().includes(filters.domain!.toLowerCase()),

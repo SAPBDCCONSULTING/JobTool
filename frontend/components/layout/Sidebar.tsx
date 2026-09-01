@@ -34,6 +34,16 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    label: 'Sources',
+    href: '/sources',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    ),
+  },
 ];
 
 export function Sidebar() {
@@ -46,7 +56,7 @@ export function Sidebar() {
     >
       {/* ── Brand ───────────────────────────────────────── */}
       <div className="px-6 py-6 border-b border-slate-700/60">
-        <div className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
@@ -59,11 +69,11 @@ export function Sidebar() {
             <h1 className="text-white font-bold text-base leading-tight">HireIntel</h1>
             <p className="text-slate-400 text-xs">AI Intelligence Platform</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* ── Navigation ──────────────────────────────────── */}
-      <nav className="flex-1 px-4 py-5 space-y-1">
+      <nav className="flex-1 px-4 py-5 space-y-1 overflow-y-auto">
         <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mb-3">
           Main Menu
         </p>
@@ -89,6 +99,21 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        <div className="pt-6 px-3">
+          <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-2">
+            Browse
+          </p>
+          <Link
+            href="/jobs"
+            className="block rounded-xl border border-slate-700/80 bg-slate-800/50 px-3 py-3 hover:border-indigo-400/40 hover:bg-slate-800 transition-colors"
+          >
+            <p className="text-slate-200 text-xs font-semibold">Region filter</p>
+            <p className="text-slate-500 text-[11px] mt-1 leading-relaxed">
+              Europe → Country → Job Website
+            </p>
+          </Link>
+        </div>
       </nav>
 
       {/* ── Footer ──────────────────────────────────────── */}

@@ -1,17 +1,30 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { fetchStats } from '@/lib/api';
-import type { StatsResponse } from '@/lib/types';
+import type { SearchResult, StatsResponse } from '@/lib/types';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { SearchForm } from '@/components/search/SearchForm';
 import { ConfidenceBadge, DomainBadge, StatusBadge } from '@/components/ui/ConfidenceBadge';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [searchTracking, setSearchTracking] = useState<{
+    keyword: string;
+    location: string;
+    pendingCount: number | null;
+    peakPending: number | null;
+    baselineRaw: number;
+    baselineClean: number;
+    baselineProcessed: number;
+    seenProgress: boolean;
+    startedAt: number;
+  } | null>(null);
 
   const loadStats = async () => {
     try {
@@ -29,10 +42,106 @@ export default function DashboardPage() {
     loadStats();
   }, []);
 
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 6000);
+  // Auto-poll when there are pending jobs (even without a manual search trigger)
+  useEffect(() => {
+    if (loading) return;
+    if (!stats || stats.pendingCount === 0) return;
+    if (searchTracking) return; // already polling via search tracker
+
+    const POLL_EVERY_MS = 4000;
+    const intervalId = window.setInterval(async () => {
+      try {
+        const latest = await fetchStats();
+        setStats(latest);
+        setError(null);
+      } catch {
+        // transient
+      }
+    }, POLL_EVERY_MS);
+    return () => window.clearInterval(intervalId);
+  }, [loading, stats?.pendingCount, searchTracking]);
+
+  const handleSearchQueued = (result: SearchResult) => {
+    setToast(null);
+    setSearchTracking({
+      keyword: result.keyword,
+      location: result.location,
+      pendingCount: null,
+      peakPending: null,
+      baselineRaw: stats?.totalRaw ?? 0,
+      baselineClean: stats?.totalClean ?? 0,
+      baselineProcessed: stats?.totalProcessed ?? 0,
+      seenProgress: false,
+      startedAt: Date.now(),
+    });
   };
+
+  useEffect(() => {
+    if (!searchTracking) return;
+
+    const POLL_EVERY_MS = 4000;
+    const MAX_POLL_MS = 8 * 60 * 1000;
+
+    const poll = async () => {
+      try {
+        const latest = await fetchStats();
+        setStats(latest);
+        setLoading(false);
+        setError(null);
+
+        setSearchTracking((prev) => {
+          if (!prev) return prev;
+
+          const rawGrew = latest.totalRaw > prev.baselineRaw;
+          const cleanGrew = latest.totalClean > prev.baselineClean;
+          const processedGrew = latest.totalProcessed > prev.baselineProcessed;
+          const pendingNow = latest.pendingCount;
+          const peakPending =
+            prev.peakPending === null
+              ? pendingNow
+              : Math.max(prev.peakPending, pendingNow);
+          const seenProgress =
+            prev.seenProgress || rawGrew || cleanGrew || processedGrew || peakPending > 0;
+
+          // Only mark complete after we actually saw new jobs arrive,
+          // then pending classification drained back to 0.
+          if (seenProgress && pendingNow === 0 && (rawGrew || cleanGrew || processedGrew || peakPending > 0)) {
+            const added = Math.max(
+              latest.totalClean - prev.baselineClean,
+              latest.totalProcessed - prev.baselineProcessed,
+              0,
+            );
+            setToast(
+              added > 0
+                ? `Search "${prev.keyword}" in "${prev.location}" completed. ${added} new jobs ready.`
+                : `Search "${prev.keyword}" in "${prev.location}" finished. No new matching jobs were added.`,
+            );
+            setTimeout(() => setToast(null), 6000);
+            return null;
+          }
+
+          return {
+            ...prev,
+            pendingCount: pendingNow,
+            peakPending,
+            seenProgress,
+          };
+        });
+
+        if (Date.now() - searchTracking.startedAt > MAX_POLL_MS) {
+          setSearchTracking(null);
+          setToast('Still fetching after several minutes. Check Jobs tab or try again.');
+          setTimeout(() => setToast(null), 6000);
+        }
+      } catch {
+        // Keep polling; transient errors should not stop updates.
+      }
+    };
+
+    poll();
+    const intervalId = window.setInterval(poll, POLL_EVERY_MS);
+    return () => window.clearInterval(intervalId);
+  }, [searchTracking]);
 
   return (
     <div className="min-h-full">
@@ -132,7 +241,57 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Search form */}
           <div className="xl:col-span-1">
-            <SearchForm onSuccess={showToast} />
+            <SearchForm onSuccess={handleSearchQueued} />
+
+            {searchTracking && (
+              <div className="mt-4 bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-2xl text-xs font-medium">
+                {searchTracking.seenProgress &&
+                searchTracking.pendingCount !== null &&
+                searchTracking.peakPending !== null &&
+                searchTracking.peakPending > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between text-[11px] text-indigo-700 mb-1.5">
+                      <span>
+                        AI classifying &quot;{searchTracking.keyword}&quot; in &quot;{searchTracking.location}&quot; — {searchTracking.pendingCount} remaining
+                      </span>
+                      <span className="font-semibold">
+                        {Math.round(
+                          ((searchTracking.peakPending - searchTracking.pendingCount) /
+                            searchTracking.peakPending) *
+                            100,
+                        )}%
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-indigo-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              ((searchTracking.peakPending - searchTracking.pendingCount) /
+                                searchTracking.peakPending) *
+                                100,
+                            ),
+                          )}%`,
+                          background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    </svg>
+                    {searchTracking.seenProgress
+                      ? `Processing jobs for "${searchTracking.keyword}" in "${searchTracking.location}"…`
+                      : `Fetching jobs from Apify for "${searchTracking.keyword}" in "${searchTracking.location}"…`}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Domain breakdown */}
             {!loading && stats && stats.domains.length > 0 && (
@@ -224,9 +383,10 @@ export default function DashboardPage() {
             <h3 className="font-semibold text-slate-700 text-sm mb-5">Jobs by Country</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {stats.countries.map((c, i) => (
-                <div
+                <button
                   key={c.name}
-                  className="rounded-xl p-4 text-center"
+                  onClick={() => router.push(`/jobs?country=${encodeURIComponent(c.name)}`)}
+                  className="rounded-xl p-4 text-center cursor-pointer hover:scale-105 hover:shadow-md transition-all"
                   style={{
                     background: `linear-gradient(135deg, hsl(${220 + i * 30}, 80%, 96%) 0%, hsl(${220 + i * 30}, 70%, 92%) 100%)`,
                   }}
@@ -240,7 +400,7 @@ export default function DashboardPage() {
                   <div className="text-xs font-medium" style={{ color: `hsl(${220 + i * 30}, 50%, 45%)` }}>
                     {c.name}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>

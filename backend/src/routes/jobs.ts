@@ -46,7 +46,7 @@ jobsRouter.get('/', async (req: Request, res: Response) => {
       take: limitNum,
       skip,
       include: {
-        rawJob: { select: { location: true } },
+        rawJob: { select: { location: true, jobId: true, companyUrl: true } },
       },
     }),
     prisma.cleanJob.count({ where }),
@@ -59,6 +59,8 @@ jobsRouter.get('/', async (req: Request, res: Response) => {
       companyName: j.companyName,
       country: j.country,
       location: j.rawJob?.location ?? null,
+      jobUrl: j.rawJob?.jobId?.startsWith('http') ? j.rawJob.jobId : null,
+      companyUrl: j.rawJob?.companyUrl ?? null,
       domain: j.domain,
       aiStatus: j.aiStatus,
       confidence: j.confidence,
