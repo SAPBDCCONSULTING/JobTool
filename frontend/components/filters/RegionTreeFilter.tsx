@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { REGIONS, type RegionSelection } from '@/lib/regions';
+import { REGIONS, type RegionSelection, isWebsiteBlocked, isCountryFullyBlocked, isCountryPartiallyBlocked, getWebsiteBlockReason } from '@/lib/regions';
 import { triggerCountryScrape, fetchScrapeStatus, type ScrapeStatusResponse } from '@/lib/api';
 
 interface RegionTreeFilterProps {
@@ -186,10 +186,15 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
         <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
           Region → Europe → Country → Site
         </p>
+        <p className="px-3 pb-2 text-[10px] text-slate-400 inline-flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+          Red = scraper blocked / closed
+        </p>
 
         {filteredRegions.map((region) => {
           const regionOpen = query ? true : !!openRegions[region.name];
           const regionActive = isRegionActive(region.name);
+          const blockedCount = region.countries.filter((c) => isCountryFullyBlocked(c)).length;
 
           return (
             <div key={region.name} className="select-none">
@@ -225,6 +230,11 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
                     <span className="text-[10px] font-normal text-slate-400">
                       {region.countries.length}
                     </span>
+                    {blockedCount > 0 && (
+                      <span className="text-[10px] font-semibold text-red-500">
+                        {blockedCount} blocked
+                      </span>
+                    )}
                   </span>
                 </button>
               </div>
@@ -237,6 +247,8 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
                       ? true
                       : !!openCountries[countryKey] || isCountryActive(country.name);
                     const countryActive = isCountryActive(country.name);
+                    const fullyBlocked = isCountryFullyBlocked(country);
+                    const partiallyBlocked = isCountryPartiallyBlocked(country);
 
                     return (
                       <div key={countryKey}>
@@ -259,16 +271,36 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
                                 country: country.name,
                               });
                             }}
+                            title={
+                              fullyBlocked
+                                ? 'All scrapers blocked for this country'
+                                : partiallyBlocked
+                                  ? 'Some sites blocked'
+                                  : undefined
+                            }
                             className={`flex-1 text-left px-2 py-1.5 rounded-lg text-[13px] transition-colors ${
                               selection.level === 'country' &&
                               selection.country === country.name
-                                ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                ? fullyBlocked
+                                  ? 'bg-red-50 text-red-700 font-semibold'
+                                  : 'bg-indigo-50 text-indigo-700 font-semibold'
                                 : countryActive
-                                  ? 'text-indigo-600 font-medium'
-                                  : 'text-slate-600 hover:bg-slate-50'
+                                  ? fullyBlocked
+                                    ? 'text-red-600 font-medium'
+                                    : 'text-indigo-600 font-medium'
+                                  : fullyBlocked
+                                    ? 'text-red-600 hover:bg-red-50 font-medium'
+                                    : partiallyBlocked
+                                      ? 'text-red-500/90 hover:bg-red-50/50'
+                                      : 'text-slate-600 hover:bg-slate-50'
                             }`}
                           >
-                            {country.name}
+                            <span className="inline-flex items-center gap-1.5">
+                              {fullyBlocked && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                              )}
+                              {country.name}
+                            </span>
                           </button>
                         </div>
 
@@ -276,6 +308,8 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
                           <div className="ml-4 border-l border-slate-100 pl-2 space-y-0.5 mt-0.5 mb-1">
                             {country.websites.map((site) => {
                               const active = isWebsiteActive(site.name);
+                              const blocked = isWebsiteBlocked(site.name);
+                              const blockReason = getWebsiteBlockReason(site.name);
                               const isScrapeTarget =
                                 scrapeTarget?.country === country.name &&
                                 scrapeTarget?.websiteUrl === site.url;
@@ -294,10 +328,14 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
                                       }
                                       className={`flex-1 text-left px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                                         active
-                                          ? 'bg-violet-50 text-violet-700 font-semibold'
-                                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                                          ? blocked
+                                            ? 'bg-red-50 text-red-700 font-semibold'
+                                            : 'bg-violet-50 text-violet-700 font-semibold'
+                                          : blocked
+                                            ? 'text-red-600 hover:bg-red-50'
+                                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
                                       }`}
-                                      title={site.url}
+                                      title={blocked ? `${site.url} — ${blockReason}` : site.url}
                                     >
                                       <span className="inline-flex items-center gap-1.5 min-w-0">
                                         <svg
@@ -307,7 +345,7 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
                                           fill="none"
                                           stroke="currentColor"
                                           strokeWidth="2"
-                                          className="flex-shrink-0 opacity-70"
+                                          className={`flex-shrink-0 ${blocked ? 'opacity-100' : 'opacity-70'}`}
                                         >
                                           <circle cx="12" cy="12" r="10" />
                                           <path d="M2 12h20" />
@@ -326,31 +364,42 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
                                           setScrapeKeyword('');
                                         }
                                       }}
-                                      className="px-1.5 py-1 rounded-md text-[10px] font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors flex-shrink-0"
-                                      title="Scrape this website"
+                                      className={`px-1.5 py-1 rounded-md text-[10px] font-semibold transition-colors flex-shrink-0 ${
+                                        blocked
+                                          ? 'text-red-400 hover:bg-red-50'
+                                          : 'text-indigo-600 hover:bg-indigo-50'
+                                      }`}
+                                      title={blocked ? `Blocked: ${blockReason}` : 'Scrape this website'}
                                     >
                                       ⚡
                                     </button>
                                   </div>
                                   {isScrapeTarget && (
-                                    <div className="ml-2 mt-1 mb-2 flex items-center gap-1">
-                                      <input
-                                        type="text"
-                                        value={scrapeKeyword}
-                                        onChange={(e) => setScrapeKeyword(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleScrape()}
-                                        placeholder="Keyword…"
-                                        autoFocus
-                                        className="flex-1 min-w-0 px-2 py-1 text-[11px] rounded-md border border-slate-200 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                                      />
-                                      <button
-                                        type="button"
-                                        onClick={handleScrape}
-                                        disabled={scrapeLoading || !scrapeKeyword.trim()}
-                                        className="px-2 py-1 rounded-md text-[10px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 flex-shrink-0"
-                                      >
-                                        {scrapeLoading ? '…' : 'Go'}
-                                      </button>
+                                    <div className="ml-2 mt-1 mb-2 space-y-1">
+                                      {blocked && (
+                                        <p className="text-[10px] text-red-600 font-medium">
+                                          Likely to fail: {blockReason}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="text"
+                                          value={scrapeKeyword}
+                                          onChange={(e) => setScrapeKeyword(e.target.value)}
+                                          onKeyDown={(e) => e.key === 'Enter' && handleScrape()}
+                                          placeholder="Keyword…"
+                                          autoFocus
+                                          className="flex-1 min-w-0 px-2 py-1 text-[11px] rounded-md border border-slate-200 bg-slate-50 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={handleScrape}
+                                          disabled={scrapeLoading || !scrapeKeyword.trim()}
+                                          className="px-2 py-1 rounded-md text-[10px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 flex-shrink-0"
+                                        >
+                                          {scrapeLoading ? '…' : 'Go'}
+                                        </button>
+                                      </div>
                                     </div>
                                   )}
                                 </div>

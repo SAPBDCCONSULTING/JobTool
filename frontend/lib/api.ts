@@ -2,10 +2,22 @@ import type {
   StatsResponse,
   JobsResponse,
   CompaniesResponse,
+  OpportunitiesResponse,
+  PitchesResponse,
+  FeedbackResponse,
+  FeedbackOutcome,
+  OpportunityStage,
   JobFilters,
   SearchResult,
 } from './types';
-import { demoStats, getDemoJobs, getDemoCompanies } from './demo/data';
+import {
+  demoStats,
+  getDemoJobs,
+  getDemoCompanies,
+  getDemoOpportunities,
+  getDemoPitches,
+  getDemoFeedback,
+} from './demo/data';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const USE_DEMO = process.env.NEXT_PUBLIC_USE_DEMO_DATA === 'true';
@@ -49,6 +61,150 @@ export async function fetchJobs(filters: JobFilters = {}): Promise<JobsResponse>
 export async function fetchCompanies(): Promise<CompaniesResponse> {
   if (USE_DEMO) return getDemoCompanies();
   return apiFetch<CompaniesResponse>('/api/companies');
+}
+
+export async function triggerCompanyAnalysis(): Promise<{
+  status: string;
+  message: string;
+  queued: number;
+}> {
+  if (USE_DEMO) {
+    await new Promise((r) => setTimeout(r, 500));
+    return {
+      status: 'queued',
+      message: '[Demo] Company intelligence analysis simulated.',
+      queued: 0,
+    };
+  }
+  return apiFetch('/api/companies/analyze', { method: 'POST' });
+}
+
+// ─── Opportunities ────────────────────────────────────────────
+export async function fetchOpportunities(filters?: {
+  stage?: OpportunityStage;
+  country?: string;
+  minScore?: number;
+}): Promise<OpportunitiesResponse> {
+  if (USE_DEMO) return getDemoOpportunities(filters);
+
+  const params = new URLSearchParams();
+  if (filters?.stage) params.set('stage', filters.stage);
+  if (filters?.country) params.set('country', filters.country);
+  if (filters?.minScore !== undefined) params.set('minScore', String(filters.minScore));
+  const qs = params.toString();
+  return apiFetch<OpportunitiesResponse>(`/api/opportunities${qs ? `?${qs}` : ''}`);
+}
+
+export async function syncOpportunities(): Promise<{
+  status: string;
+  message: string;
+  upserted: number;
+  skipped: number;
+}> {
+  if (USE_DEMO) {
+    await new Promise((r) => setTimeout(r, 500));
+    return {
+      status: 'ok',
+      message: '[Demo] Opportunity sync simulated.',
+      upserted: 0,
+      skipped: 0,
+    };
+  }
+  return apiFetch('/api/opportunities/sync', { method: 'POST' });
+}
+
+export async function updateOpportunityStage(
+  id: string,
+  stage: OpportunityStage,
+  notes?: string,
+): Promise<{ id: string; stage: OpportunityStage }> {
+  if (USE_DEMO) {
+    await new Promise((r) => setTimeout(r, 300));
+    return { id, stage };
+  }
+  return apiFetch(`/api/opportunities/${id}/stage`, {
+    method: 'PATCH',
+    body: JSON.stringify({ stage, notes }),
+  });
+}
+
+// ─── Pitches / Outreach ───────────────────────────────────────
+export async function fetchPitches(filters?: {
+  status?: string;
+  country?: string;
+}): Promise<PitchesResponse> {
+  if (USE_DEMO) return getDemoPitches(filters);
+
+  const params = new URLSearchParams();
+  if (filters?.status) params.set('status', filters.status);
+  if (filters?.country) params.set('country', filters.country);
+  const qs = params.toString();
+  return apiFetch<PitchesResponse>(`/api/pitches${qs ? `?${qs}` : ''}`);
+}
+
+export async function triggerPitchGeneration(): Promise<{
+  status: string;
+  message: string;
+  queued: number;
+}> {
+  if (USE_DEMO) {
+    await new Promise((r) => setTimeout(r, 500));
+    return {
+      status: 'queued',
+      message: '[Demo] Pitch generation simulated.',
+      queued: 0,
+    };
+  }
+  return apiFetch('/api/pitches/generate', { method: 'POST' });
+}
+
+export async function regeneratePitch(id: string): Promise<{
+  status: string;
+  message: string;
+}> {
+  if (USE_DEMO) {
+    await new Promise((r) => setTimeout(r, 400));
+    return { status: 'queued', message: '[Demo] Pitch regenerate simulated.' };
+  }
+  return apiFetch(`/api/pitches/${id}/regenerate`, { method: 'POST' });
+}
+
+// ─── Feedback loop ────────────────────────────────────────────
+export async function fetchFeedback(filters?: {
+  opportunityId?: string;
+  outcome?: FeedbackOutcome;
+}): Promise<FeedbackResponse> {
+  if (USE_DEMO) return getDemoFeedback(filters);
+
+  const params = new URLSearchParams();
+  if (filters?.opportunityId) params.set('opportunityId', filters.opportunityId);
+  if (filters?.outcome) params.set('outcome', filters.outcome);
+  const qs = params.toString();
+  return apiFetch<FeedbackResponse>(`/api/feedback${qs ? `?${qs}` : ''}`);
+}
+
+export async function recordFeedback(input: {
+  opportunityId: string;
+  outcome: FeedbackOutcome;
+  notes?: string;
+  recordedBy?: string;
+}): Promise<{
+  status: string;
+  message: string;
+  stage: OpportunityStage;
+}> {
+  if (USE_DEMO) {
+    await new Promise((r) => setTimeout(r, 400));
+    return {
+      status: 'ok',
+      message: `[Demo] Recorded ${input.outcome}`,
+      stage: input.outcome,
+    };
+  }
+  return apiFetch('/api/feedback', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 // ─── Search ───────────────────────────────────────────────────

@@ -12,6 +12,10 @@ import { filterJob, mapApifyItemToRaw } from './filter.service.js';
 /**
  * Shared logic: process raw items into raw_jobs + clean_jobs + AI queue.
  * Used by both Apify ingestion and Python country scrapers.
+ *
+ * Dedup:
+ * 1. raw_jobs upsert on (jobId, country) — same listing again is skipped for clean insert
+ * 2. soft dedup on (companyName, jobTitle, country) — same role from different sources/ids
  */
 export async function processRawItems(
   items: ApifyJobItem[],
@@ -28,13 +32,19 @@ export async function processRawItems(
     try {
       const rawData = mapApifyItemToRaw(item, keyword, country);
 
+      const existingRaw = await prisma.rawJob.findUnique({
+        where: { jobId_country: { jobId: rawData.jobId, country: rawData.country } },
+      });
+
       const rawJob = await prisma.rawJob.upsert({
         where: { jobId_country: { jobId: rawData.jobId, country: rawData.country } },
         create: rawData,
         update: {},
       });
 
-      rawInserted++;
+      if (!existingRaw) {
+        rawInserted++;
+      }
 
       const existingClean = await prisma.cleanJob.findUnique({
         where: { rawJobId: rawJob.id },
@@ -42,6 +52,29 @@ export async function processRawItems(
 
       if (existingClean) {
         skipped++;
+        continue;
+      }
+
+      // Soft dedup: same company + title + country already in clean_jobs (e.g. different jobId/source)
+      const duplicateListing = await prisma.cleanJob.findFirst({
+        where: {
+          country: rawData.country,
+          companyName: { equals: rawData.companyName, mode: 'insensitive' },
+          jobTitle: { equals: rawData.jobTitle, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+
+      if (duplicateListing) {
+        skipped++;
+        logger.debug(
+          {
+            company: rawData.companyName,
+            title: rawData.jobTitle,
+            country: rawData.country,
+          },
+          'Skipping duplicate listing (company+title+country)',
+        );
         continue;
       }
 

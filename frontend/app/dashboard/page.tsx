@@ -7,6 +7,7 @@ import type { SearchResult, StatsResponse } from '@/lib/types';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { SearchForm } from '@/components/search/SearchForm';
 import { ConfidenceBadge, DomainBadge, StatusBadge } from '@/components/ui/ConfidenceBadge';
+import { SectionTitleWithInfo, SECTION_INFO } from '@/components/ui/SectionInfoButton';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -143,16 +144,74 @@ export default function DashboardPage() {
     return () => window.clearInterval(intervalId);
   }, [searchTracking]);
 
+  const wonCount = stats?.feedback?.pipeline?.WON ?? 0;
+  const contactedCount = stats?.feedback?.pipeline?.CONTACTED ?? 0;
+  const pipelineStages = [
+    {
+      href: '/companies',
+      label: 'Companies',
+      hint: 'Intelligence done',
+      value: stats?.companyIntelDone ?? 0,
+      accent: '#6366f1',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 21h18" /><path d="M5 21V7l8-4v18" /><path d="M19 21V11l-6-4" />
+          <path d="M9 9v.01" /><path d="M9 12v.01" /><path d="M9 15v.01" /><path d="M9 18v.01" />
+        </svg>
+      ),
+    },
+    {
+      href: '/opportunities',
+      label: 'Opportunities',
+      hint: 'Qualified',
+      value: stats?.qualifiedOpportunities ?? 0,
+      accent: '#8b5cf6',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" /><path d="M8 12l2.5 2.5L16 9" />
+        </svg>
+      ),
+    },
+    {
+      href: '/outreach',
+      label: 'Pitches',
+      hint: 'Ready to send',
+      value: stats?.pitchesReady ?? 0,
+      accent: '#0ea5e9',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+      ),
+    },
+    {
+      href: '/feedback',
+      label: 'Won / contacted',
+      hint: `${wonCount} won · ${contactedCount} contacted`,
+      value: wonCount + contactedCount,
+      accent: '#10b981',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      ),
+    },
+  ];
+
   return (
     <div className="min-h-full">
       {/* ── Page header ─────────────────────────────────── */}
       <div
         className="px-8 py-6 border-b border-slate-200/60"
-        style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #818cf8 100%)' }}
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+            <SectionTitleWithInfo
+              title="Dashboard"
+              label="Dashboard"
+              content={SECTION_INFO.dashboard}
+            />
             <p className="text-indigo-200 text-sm mt-0.5">
               Hiring intent intelligence overview
             </p>
@@ -191,9 +250,10 @@ export default function DashboardPage() {
         {/* ── Stats cards ─────────────────────────────────── */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
           <StatsCard
-            title="Total Jobs Fetched"
+            title="Total Jobs"
             value={loading ? '—' : (stats?.totalRaw ?? 0)}
-            subtitle="from Apify across all searches"
+            subtitle="LinkedIn + Europe sources"
+            href="/jobs"
             gradient="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
             icon={
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -202,9 +262,10 @@ export default function DashboardPage() {
             }
           />
           <StatsCard
-            title="Filtered & Relevant"
+            title="Clean / Relevant"
             value={loading ? '—' : (stats?.totalClean ?? 0)}
             subtitle="after rule-based filtering"
+            href="/jobs"
             gradient="linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)"
             icon={
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -216,6 +277,7 @@ export default function DashboardPage() {
             title="AI Processed"
             value={loading ? '—' : (stats?.totalProcessed ?? 0)}
             subtitle={loading ? '' : `${stats?.pendingCount ?? 0} pending classification`}
+            href="/jobs"
             gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)"
             icon={
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -227,14 +289,75 @@ export default function DashboardPage() {
             title="High Confidence"
             value={loading ? '—' : (stats?.highConfidence ?? 0)}
             subtitle="confidence score ≥ 70%"
+            href="/jobs?minConfidence=0.7"
             gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
             icon={
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
             }
-            badge="🎯 Intent signals"
+            badge="Intent signals"
           />
+        </div>
+
+        {/* ── Demand pipeline ─────────────────────────────── */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">Demand pipeline</h2>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Companies → Opportunities → Outreach → Feedback
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 xl:grid-cols-4 divide-y xl:divide-y-0 xl:divide-x divide-slate-100">
+            {pipelineStages.map((stage, i) => (
+              <a
+                key={stage.href}
+                href={stage.href}
+                className="relative group px-5 py-4 hover:bg-slate-50/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400"
+              >
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span
+                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: `${stage.accent}14`,
+                      color: stage.accent,
+                    }}
+                  >
+                    {stage.icon}
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 group-hover:text-slate-700">
+                    {stage.label}
+                  </span>
+                  {i < pipelineStages.length - 1 && (
+                    <svg
+                      className="hidden xl:block ml-auto text-slate-300 group-hover:text-indigo-400 transition-colors"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <path d="M5 12h14" /><path d="M13 6l6 6-6 6" />
+                    </svg>
+                  )}
+                </div>
+                <div className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">
+                  {loading ? '—' : stage.value.toLocaleString()}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-1 group-hover:text-indigo-600 transition-colors">
+                  {stage.hint}
+                  <span className="inline-block ml-1 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+                </div>
+                <div
+                  className="absolute left-0 right-0 bottom-0 h-0.5 scale-x-0 group-hover:scale-x-100 transition-transform origin-left"
+                  style={{ background: stage.accent }}
+                />
+              </a>
+            ))}
+          </div>
         </div>
 
         {/* ── Middle row: Search + Domain breakdown ───────── */}

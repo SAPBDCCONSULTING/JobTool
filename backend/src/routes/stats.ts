@@ -14,6 +14,11 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
     countriesResult,
     domainsResult,
     recentJobs,
+    feedbackByOutcome,
+    feedbackPipeline,
+    companyIntelDone,
+    qualifiedOpportunities,
+    pitchesReady,
   ] = await Promise.all([
     prisma.rawJob.count(),
     prisma.cleanJob.count(),
@@ -48,6 +53,22 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
         createdAt: true,
       },
     }),
+    prisma.feedbackEvent.groupBy({
+      by: ['outcome'],
+      _count: { _all: true },
+    }),
+    prisma.opportunity.groupBy({
+      by: ['stage'],
+      where: {
+        stage: {
+          in: ['REVIEWED', 'CONTACTED', 'REPLIED', 'MEETING', 'WON', 'LOST'],
+        },
+      },
+      _count: { _all: true },
+    }),
+    prisma.companyIntelligence.count({ where: { aiStatus: 'DONE' } }),
+    prisma.opportunity.count({ where: { stage: 'QUALIFIED' } }),
+    prisma.pitch.count({ where: { aiStatus: 'DONE' } }),
   ]);
 
   res.json({
@@ -56,10 +77,21 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
     totalProcessed,
     highConfidence,
     pendingCount,
+    companyIntelDone,
+    qualifiedOpportunities,
+    pitchesReady,
     countries: countriesResult.map((c) => ({ name: c.country, count: c._count.id })),
     domains: domainsResult
       .filter((d) => d.domain)
       .map((d) => ({ name: d.domain!, count: d._count.id })),
     recentJobs,
+    feedback: {
+      events: Object.fromEntries(
+        feedbackByOutcome.map((o) => [o.outcome, o._count._all]),
+      ),
+      pipeline: Object.fromEntries(
+        feedbackPipeline.map((s) => [s.stage, s._count._all]),
+      ),
+    },
   });
 });

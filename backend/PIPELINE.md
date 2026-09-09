@@ -201,19 +201,36 @@ Scraping and AI are **slow and unreliable** if done inside the HTTP request. Red
 | Multiple users search at once | Overload Apify / OpenAI | Queue serializes ingestion (`concurrency: 1`) |
 | API vs heavy work | One process does everything | API stays light; worker does Apify + AI |
 
-### Two queues
+### Queues
 
 | Queue | Triggered by | Worker does |
 |-------|--------------|-------------|
-| `ingestion` | `POST /api/search` (LinkedIn) | Apify trigger → poll → fetch → `processRawItems` |
+| `ingestion` | `POST /api/search` + daily scheduler | Apify trigger → poll → fetch → `processRawItems` |
 | `ai-classify` | After ingest (LinkedIn **and** Europe) | Classify PENDING `clean_jobs` with OpenAI |
+| `europe-scrape` | Daily scheduler (working sites) | Spawn Playwright scrape.py → ingest |
+| `scheduler` | Repeatable every 24h (default) | Fan out LinkedIn + Europe jobs (staggered) |
 
 Redis stores the queue state (waiting / active / failed jobs). BullMQ is the Node library on top of Redis.
 
-### Why Europe scrape is *not* on BullMQ
+### Scheduler (every 24h)
 
-Country scrape is spawned directly from the API (`scrape-country.ts`) so the UI can poll live status (`scraping` → `processing` → …).  
-Only the **AI step** after that uses the `ai-classify` queue.
+Worker registers a BullMQ repeatable on `scheduler` → `daily-scan`:
+1. Enqueues LinkedIn `ingestion` jobs for `SCHEDULER_LINKEDIN_LOCATIONS` (default: SA, UAE, DE, UK)
+2. Enqueues `europe-scrape` for all **working** Europe sites (~23), staggered by `SCHEDULER_EUROPE_STAGGER_MS`
+
+| Env | Default | Meaning |
+|-----|---------|---------|
+| `SCHEDULER_ENABLED` | `true` | Set `false` to pause recurring scans |
+| `SCHEDULER_INTERVAL_MS` | `86400000` | 24 hours |
+| `SCHEDULER_KEYWORD` | `SAP` | Keyword for all scheduled scrapes |
+| `SCHEDULER_LINKEDIN_LOCATIONS` | SA, UAE, DE, UK | Comma-separated Apify locations |
+| `SCHEDULER_EUROPE_STAGGER_MS` | `180000` | 3 min between Europe sites |
+
+Ops: `GET /api/scheduler` (status), `POST /api/scheduler/run` (trigger one cycle now). Requires **worker** running.
+
+### Manual Europe scrape (UI)
+
+Country scrape from the Jobs UI still runs **in the API process** (`runEuropeScrape`) so `GET /api/scrape-country/status` can poll live phases. Scheduled Europe scrapes use BullMQ instead.
 
 ### Mental model
 
@@ -306,18 +323,92 @@ From each `clean_job`:
 
 - Jobs table: AI status + confidence filter  
 - Dashboard: counts of DONE / high-confidence (≥ 0.7) / still pending  
-- Companies: ranked by **average confidence** of DONE jobs  
+- Companies: ranked by **opportunity score** (company AI) with why-now / what-to-sell
 
 ### Key files
 
 | File | Role |
 |------|------|
 | `backend/src/services/ai-classifier.service.ts` | Agent prompt + `classifyJob()` |
-| `backend/src/workers/ai-classify.worker.ts` | Batch claim → classify → update DB |
+| `backend/src/workers/ai-classify.worker.ts` | Batch claim → classify → update DB → enqueue company AI |
 | `backend/src/services/ingest.service.ts` | Enqueues `ai-classify` after insert |
 | `backend/prisma/schema.prisma` | `AiStatus`: PENDING → PROCESSING → DONE / FAILED |
 
 Needs: Redis + `npm run dev:worker` + `OPENAI_API_KEY`.
+
+---
+
+## 9b. AI Company Intelligence
+
+After jobs are classified, the job AI worker enqueues **company-level** analysis (`opportunityScore`, `whyNow`, `whatToSell`, `signals`).
+
+| Step | Detail |
+|------|--------|
+| 1 | Upsert `company_intelligence` as `PENDING` per `(companyName, country)` |
+| 2 | BullMQ queue `ai-company` (batches of 5) |
+| 3 | Load up to 25 DONE jobs for that company |
+| 4 | OpenAI (`gpt-4o-mini`) → opportunity score + sales narrative |
+| 5 | Companies UI ranks by opportunity score; expand row for why now / what to sell |
+
+Manual catch-up: `POST /api/companies/analyze`
+
+| File | Role |
+|------|------|
+| `backend/src/services/ai-company.service.ts` | Prompt + `analyzeCompany()` |
+| `backend/src/services/company-intel.service.ts` | Enqueue / discover pending |
+| `backend/src/workers/ai-company.worker.ts` | Batch analyze → save → upsert opportunity |
+| `backend/src/routes/companies.ts` | List + analyze |
+
+---
+
+## 9c. Opportunity Engine
+
+Company intelligence feeds a deterministic **rank / qualify / stage / offering** engine.
+
+| Rule | Result |
+|------|--------|
+| Score ≥ 0.7 | Stage `QUALIFIED` |
+| Score 0.5–0.69 | Stage `NURTURE` |
+| Score 0.35–0.49 | Stage `NEW` |
+| Score &lt; 0.35 | Stage `DISQUALIFIED` |
+| Manual `CONTACTED` / `WON` / `LOST` | Preserved on re-sync |
+
+Recommended offering codes (from domain + whatToSell): `S4HANA_IMPLEMENTATION`, `SAP_BTP`, `CLOUD_MIGRATION`, `DATA_PLATFORM`, `ERP_TRANSFORMATION`, etc.
+
+Dense **rank** = order by score desc among non-disqualified rows.
+
+APIs: `GET /api/opportunities`, `POST /api/opportunities/sync`, `PATCH /api/opportunities/:id/stage`
+
+| File | Role |
+|------|------|
+| `backend/src/services/opportunity.engine.ts` | Qualify, map offering, upsert, rank |
+| `backend/src/routes/opportunities.ts` | List / sync / stage |
+| `frontend/app/opportunities/page.tsx` | Opportunities UI |
+
+---
+
+## 9d. AI Pitch Generator
+
+Qualified / nurture opportunities trigger personalized outreach drafts.
+
+| Field | Meaning |
+|-------|---------|
+| `angles` | 2–5 short pitch angles |
+| `emailSubject` | First-touch subject line |
+| `emailBody` | ~120–180 word consultative email |
+| `personalizationNotes` | What facts were used |
+| `callToAction` | Single CTA |
+
+Flow: opportunity upsert (QUALIFIED/NURTURE) → `pitches` PENDING → BullMQ `ai-pitch` → DONE.
+
+APIs: `GET /api/pitches`, `POST /api/pitches/generate`, `POST /api/pitches/:id/regenerate`
+
+| File | Role |
+|------|------|
+| `backend/src/services/ai-pitch.service.ts` | Prompt + `generatePitch()` |
+| `backend/src/services/pitch.service.ts` | Enqueue helpers |
+| `backend/src/workers/ai-pitch.worker.ts` | Batch generate |
+| `frontend/app/outreach/page.tsx` | Outreach UI |
 
 ---
 

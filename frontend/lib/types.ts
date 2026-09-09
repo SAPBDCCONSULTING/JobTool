@@ -31,6 +31,125 @@ export interface Company {
   jobCount: number;
   avgConfidence: number | null;
   topDomain: string | null;
+  /** AI company opportunity score (0–1) */
+  opportunityScore?: number | null;
+  whyNow?: string | null;
+  whatToSell?: string | null;
+  signals?: string[];
+  intelStatus?: AiStatus | string | null;
+}
+
+export type OpportunityStage =
+  | 'NEW'
+  | 'QUALIFIED'
+  | 'NURTURE'
+  | 'DISQUALIFIED'
+  | 'REVIEWED'
+  | 'CONTACTED'
+  | 'REPLIED'
+  | 'MEETING'
+  | 'WON'
+  | 'LOST';
+
+export type FeedbackOutcome =
+  | 'REVIEWED'
+  | 'CONTACTED'
+  | 'REPLIED'
+  | 'MEETING'
+  | 'WON'
+  | 'LOST';
+
+export interface FeedbackEvent {
+  id: string;
+  opportunityId: string;
+  outcome: FeedbackOutcome;
+  notes: string | null;
+  recordedBy: string | null;
+  createdAt: string;
+  opportunity?: {
+    id: string;
+    companyName: string;
+    country: string;
+    score: number;
+    rank: number;
+    stage: OpportunityStage;
+    recommendedOffering: string;
+    topDomain: string | null;
+  };
+}
+
+export interface FeedbackResponse {
+  events: FeedbackEvent[];
+  summary: Record<string, number>;
+  pipeline: Record<string, number>;
+}
+
+export interface Opportunity {
+  id: string;
+  companyName: string;
+  country: string;
+  stage: OpportunityStage;
+  rank: number;
+  score: number;
+  recommendedOffering: string;
+  offeringCode: string | null;
+  whyNow: string | null;
+  qualificationReason: string | null;
+  topDomain: string | null;
+  jobCount: number;
+  notes: string | null;
+  signals: string[];
+  whatToSell: string | null;
+  avgJobConfidence: number | null;
+  latestFeedback?: {
+    id: string;
+    outcome: FeedbackOutcome;
+    notes: string | null;
+    recordedBy: string | null;
+    createdAt: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+  stageUpdatedAt: string | null;
+}
+
+export interface OpportunitiesResponse {
+  opportunities: Opportunity[];
+  summary: Record<string, number>;
+}
+
+export interface Pitch {
+  id: string;
+  opportunityId: string;
+  companyName: string;
+  country: string;
+  angles: string[];
+  emailSubject: string | null;
+  emailBody: string | null;
+  personalizationNotes: string | null;
+  callToAction: string | null;
+  /** Emails scraped from related job descriptions */
+  contactEmails?: string[];
+  aiStatus: AiStatus;
+  aiProcessedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  opportunity: {
+    id: string;
+    stage: OpportunityStage;
+    score: number;
+    rank: number;
+    recommendedOffering: string;
+    offeringCode: string | null;
+    whyNow: string | null;
+    topDomain: string | null;
+    jobCount: number;
+  };
+}
+
+export interface PitchesResponse {
+  pitches: Pitch[];
+  summary: Record<string, number>;
 }
 
 export interface CompaniesResponse {
@@ -64,9 +183,16 @@ export interface StatsResponse {
   totalProcessed: number;
   highConfidence: number;
   pendingCount: number;
+  companyIntelDone: number;
+  qualifiedOpportunities: number;
+  pitchesReady: number;
   countries: CountryStat[];
   domains: DomainStat[];
   recentJobs: RecentJob[];
+  feedback?: {
+    events: Record<string, number>;
+    pipeline: Record<string, number>;
+  };
 }
 
 export interface JobFilters {

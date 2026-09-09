@@ -80,16 +80,31 @@ export function mapApifyItemToRaw(
   keyword: string,
   location: string,
 ) {
-  // Normalize field names — LinkedIn scraper may vary slightly
+  // Prefer source id/url; never use Date.now() — that defeats dedup on re-scrape.
+  const companyName = String(
+    item.companyName ?? item.company ?? item['company'] ?? 'Unknown Company',
+  );
+  const jobTitle = String(item.title ?? item['jobTitle'] ?? 'Unknown Title');
+  const sourceId = String(item.id ?? item.jobId ?? '').trim();
+  const sourceUrl = String(
+    (item as { url?: string; jobUrl?: string; link?: string }).url ??
+      (item as { jobUrl?: string }).jobUrl ??
+      (item as { link?: string }).link ??
+      '',
+  ).trim();
+
   const jobId =
-    String(item.id ?? item.jobId ?? '') ||
-    `${item.companyName ?? 'unknown'}-${item.title ?? 'unknown'}-${Date.now()}`;
+    sourceId ||
+    sourceUrl ||
+    `${normalizeKey(companyName)}::${normalizeKey(jobTitle)}`;
 
   return {
     jobId,
-    jobTitle: String(item.title ?? item['jobTitle'] ?? 'Unknown Title'),
-    jobDescription: String(item.description ?? item.descriptionHtml ?? item['jobDescription'] ?? ''),
-    companyName: String(item.companyName ?? item.company ?? item['company'] ?? 'Unknown Company'),
+    jobTitle,
+    jobDescription: String(
+      item.description ?? item.descriptionHtml ?? item['jobDescription'] ?? '',
+    ),
+    companyName,
     companyId: item.companyId ? String(item.companyId) : null,
     companyUrl: item.companyUrl ? String(item.companyUrl) : null,
     location: item.location ? String(item.location) : null,
@@ -97,4 +112,8 @@ export function mapApifyItemToRaw(
     searchString: keyword,
     publishedAt: item.publishedAt ? new Date(item.publishedAt) : null,
   };
+}
+
+function normalizeKey(s: string) {
+  return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }

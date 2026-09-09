@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { aiQueue } from '../lib/queue.js';
 import { logger } from '../lib/logger.js';
 import { classifyJob } from '../services/ai-classifier.service.js';
+import { enqueueCompanyIntelligence } from '../services/company-intel.service.js';
 
 const BATCH_SIZE = 10;
 
@@ -13,6 +14,7 @@ interface PendingJobRow {
   jobTitle: string;
   jobDescription: string;
   companyName: string;
+  country: string;
 }
 
 export function createAiClassifyWorker() {
@@ -25,7 +27,7 @@ export function createAiClassifyWorker() {
       const jobs = await prisma.$transaction(async (tx) => {
         const rows = await tx.$queryRaw<PendingJobRow[]>(
           Prisma.sql`
-            SELECT id, "jobTitle", "jobDescription", "companyName"
+            SELECT id, "jobTitle", "jobDescription", "companyName", country
             FROM clean_jobs
             WHERE "aiStatus" = 'PENDING'::"AiStatus"
             ORDER BY "createdAt" ASC
@@ -54,6 +56,7 @@ export function createAiClassifyWorker() {
       // ── Process each job individually ──────────────────────────
       let success = 0;
       let failed = 0;
+      const classifiedCompanies: Array<{ companyName: string; country: string }> = [];
 
       for (const pendingJob of jobs) {
         try {
@@ -74,6 +77,10 @@ export function createAiClassifyWorker() {
           });
 
           success++;
+          classifiedCompanies.push({
+            companyName: pendingJob.companyName,
+            country: pendingJob.country,
+          });
           logger.debug(
             { id: pendingJob.id, confidence: result.confidence },
             'Job classified successfully',
@@ -89,6 +96,15 @@ export function createAiClassifyWorker() {
       }
 
       logger.info({ success, failed, total: jobs.length }, 'AI worker: batch complete');
+
+      // Roll up to company-level opportunity intelligence
+      if (classifiedCompanies.length > 0) {
+        try {
+          await enqueueCompanyIntelligence(classifiedCompanies);
+        } catch (err) {
+          logger.error({ err }, 'Failed to enqueue company intelligence');
+        }
+      }
 
       // ── If full batch, there may be more — chain next batch ────
       if (jobs.length === BATCH_SIZE) {

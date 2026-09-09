@@ -1,34 +1,69 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { fetchCompanies } from '@/lib/api';
+import { useCallback, useEffect, useState } from 'react';
+import { fetchCompanies, triggerCompanyAnalysis } from '@/lib/api';
 import type { Company } from '@/lib/types';
 import { CompaniesTable } from '@/components/companies/CompaniesTable';
+import { SectionTitleWithInfo, SECTION_INFO } from '@/components/ui/SectionInfoButton';
 
 export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    fetchCompanies()
+  const load = useCallback(() => {
+    return fetchCompanies()
       .then((res) => setCompanies(res.companies))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load companies'))
-      .finally(() => setLoading(false));
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load companies'));
   }, []);
+
+  useEffect(() => {
+    load().finally(() => setLoading(false));
+  }, [load]);
+
+  // Poll while any company intelligence is still pending
+  useEffect(() => {
+    const pending = companies.some(
+      (c) => c.intelStatus === 'PENDING' || c.intelStatus === 'PROCESSING',
+    );
+    if (!pending || loading) return;
+    const t = setInterval(() => {
+      load().catch(() => undefined);
+    }, 8000);
+    return () => clearInterval(t);
+  }, [companies, loading, load]);
 
   const filtered = companies.filter(
     (c) =>
       !search ||
       c.companyName.toLowerCase().includes(search.toLowerCase()) ||
-      c.country.toLowerCase().includes(search.toLowerCase()),
+      c.country.toLowerCase().includes(search.toLowerCase()) ||
+      (c.whatToSell ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
   const totalJobs = companies.reduce((sum, c) => sum + c.jobCount, 0);
-  const avgConf = companies.length
-    ? companies.reduce((sum, c) => sum + (c.avgConfidence ?? 0), 0) / companies.length
+  const scored = companies.filter((c) => c.opportunityScore != null);
+  const avgOpp = scored.length
+    ? scored.reduce((sum, c) => sum + (c.opportunityScore ?? 0), 0) / scored.length
     : 0;
+
+  async function handleAnalyze() {
+    setAnalyzing(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await triggerCompanyAnalysis();
+      setNotice(res.message);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to queue analysis');
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   return (
     <div className="min-h-full">
@@ -37,38 +72,54 @@ export default function CompaniesPage() {
         className="px-8 py-6 border-b border-slate-200/60"
         style={{ background: 'linear-gradient(135deg, #10b981 0%, #0ea5e9 100%)' }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold text-white">Company Intelligence</h1>
+            <div className="flex items-center gap-2">
+              <SectionTitleWithInfo
+                title="Company Intelligence"
+                label="Company Intelligence"
+                content={SECTION_INFO.companies}
+              />
+            </div>
             <p className="text-emerald-100 text-sm mt-0.5">
-              Ranked by hiring intent signal strength
+              Opportunity score · why now · what to sell
             </p>
           </div>
-          {!loading && (
-            <div className="flex gap-3">
-              <div
-                className="px-4 py-2 rounded-xl text-center"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
-                <div className="text-lg font-bold text-white">{companies.length}</div>
-                <div className="text-xs text-emerald-100">Companies</div>
-              </div>
-              <div
-                className="px-4 py-2 rounded-xl text-center"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
-                <div className="text-lg font-bold text-white">{totalJobs.toLocaleString()}</div>
-                <div className="text-xs text-emerald-100">Total Jobs</div>
-              </div>
-              <div
-                className="px-4 py-2 rounded-xl text-center"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
-                <div className="text-lg font-bold text-white">{Math.round(avgConf * 100)}%</div>
-                <div className="text-xs text-emerald-100">Avg Score</div>
-              </div>
-            </div>
-          )}
+          <div className="flex items-center gap-3 flex-wrap">
+            {!loading && (
+              <>
+                <div
+                  className="px-4 py-2 rounded-xl text-center"
+                  style={{ background: 'rgba(255,255,255,0.15)' }}
+                >
+                  <div className="text-lg font-bold text-white">{companies.length}</div>
+                  <div className="text-xs text-emerald-100">Companies</div>
+                </div>
+                <div
+                  className="px-4 py-2 rounded-xl text-center"
+                  style={{ background: 'rgba(255,255,255,0.15)' }}
+                >
+                  <div className="text-lg font-bold text-white">{totalJobs.toLocaleString()}</div>
+                  <div className="text-xs text-emerald-100">Total Jobs</div>
+                </div>
+                <div
+                  className="px-4 py-2 rounded-xl text-center"
+                  style={{ background: 'rgba(255,255,255,0.15)' }}
+                >
+                  <div className="text-lg font-bold text-white">{Math.round(avgOpp * 100)}%</div>
+                  <div className="text-xs text-emerald-100">Avg Opportunity</div>
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={handleAnalyze}
+              disabled={analyzing || loading}
+              className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-60 transition-colors shadow-sm"
+            >
+              {analyzing ? 'Queuing…' : 'Analyze companies'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -91,20 +142,24 @@ export default function CompaniesPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search company or country…"
+              placeholder="Search company, country, or offering…"
               className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-transparent transition-all"
             />
           </div>
         </div>
 
-        {/* ── Error ───────────────────────────────────────── */}
+        {notice && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl text-sm">
+            {notice}
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm">
             {error}
           </div>
         )}
 
-        {/* ── Table ───────────────────────────────────────── */}
         <CompaniesTable companies={filtered} loading={loading} />
 
         {search && !loading && (

@@ -14,6 +14,29 @@ enum AiStatus {
   FAILED
 }
 
+enum OpportunityStage {
+  NEW
+  QUALIFIED
+  NURTURE
+  DISQUALIFIED
+  REVIEWED
+  CONTACTED
+  REPLIED
+  MEETING
+  WON
+  LOST
+}
+
+/// Human feedback loop outcomes (sales pipeline)
+enum FeedbackOutcome {
+  REVIEWED
+  CONTACTED
+  REPLIED
+  MEETING
+  WON
+  LOST
+}
+
 model RawJob {
   id             String    @id @default(uuid())
   jobId          String
@@ -58,4 +81,105 @@ model CleanJob {
   @@index([companyName])
   @@index([country])
   @@map("clean_jobs")
+}
+
+/// AI Company Intelligence — opportunity score, why now, what to sell
+model CompanyIntelligence {
+  id                 String   @id @default(uuid())
+  companyName        String
+  country            String
+  opportunityScore   Float?
+  whyNow             String?  @db.Text
+  whatToSell         String?  @db.Text
+  signals            String?  @db.Text
+  aiStatus           AiStatus @default(PENDING)
+  jobCountAtAnalysis Int      @default(0)
+  avgJobConfidence   Float?
+  topDomain          String?
+  aiProcessedAt      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  opportunity        Opportunity?
+
+  @@unique([companyName, country])
+  @@index([aiStatus])
+  @@index([opportunityScore])
+  @@map("company_intelligence")
+}
+
+/// Opportunity Engine — ranked / staged sales opportunities
+model Opportunity {
+  id                     String           @id @default(uuid())
+  companyIntelligenceId  String           @unique
+  companyIntelligence    CompanyIntelligence @relation(fields: [companyIntelligenceId], references: [id], onDelete: Cascade)
+  companyName            String
+  country                String
+  stage                  OpportunityStage @default(NEW)
+  /// Dense rank by score (1 = best)
+  rank                   Int              @default(0)
+  score                  Float
+  recommendedOffering    String
+  offeringCode           String?
+  whyNow                 String?          @db.Text
+  qualificationReason    String?          @db.Text
+  topDomain              String?
+  jobCount               Int              @default(0)
+  notes                  String?          @db.Text
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  stageUpdatedAt         DateTime?
+
+  pitch                  Pitch?
+  feedbackEvents         FeedbackEvent[]
+
+  @@index([stage])
+  @@index([score])
+  @@index([rank])
+  @@index([country])
+  @@index([companyName])
+  @@map("opportunities")
+}
+
+/// Feedback loop — human outcomes on opportunities (audit trail)
+model FeedbackEvent {
+  id            String          @id @default(uuid())
+  opportunityId String
+  opportunity   Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  outcome       FeedbackOutcome
+  notes         String?         @db.Text
+  /// Optional label for internal tool (no auth yet)
+  recordedBy    String?         @default("team")
+  createdAt     DateTime        @default(now())
+
+  @@index([opportunityId])
+  @@index([outcome])
+  @@index([createdAt])
+  @@map("feedback_events")
+}
+
+/// AI Pitch Generator — angles + personalized outreach email
+model Pitch {
+  id                   String   @id @default(uuid())
+  opportunityId        String   @unique
+  opportunity          Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  companyName          String
+  country              String
+  /// Pipe-separated pitch angles
+  angles               String?  @db.Text
+  emailSubject         String?
+  emailBody            String?  @db.Text
+  personalizationNotes String?  @db.Text
+  callToAction         String?
+  /// Emails found in related job descriptions (pipe-separated)
+  contactEmails        String?  @db.Text
+  aiStatus             AiStatus @default(PENDING)
+  aiProcessedAt        DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([aiStatus])
+  @@index([companyName])
+  @@index([country])
+  @@map("pitches")
 }

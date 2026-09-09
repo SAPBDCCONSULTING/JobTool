@@ -9,6 +9,7 @@ import { JobsTable } from '@/components/jobs/JobsTable';
 import { Pagination } from '@/components/ui/Pagination';
 import { RegionTreeFilter } from '@/components/filters/RegionTreeFilter';
 import { EUROPE_COUNTRIES, REGIONS, type RegionSelection } from '@/lib/regions';
+import { SectionTitleWithInfo, SECTION_INFO } from '@/components/ui/SectionInfoButton';
 
 const DEFAULT_FILTERS: JobFilters = { page: 1, limit: 20 };
 
@@ -60,7 +61,15 @@ export default function JobsPage() {
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<JobFilters>(() => {
     const country = searchParams.get('country');
-    return country ? { ...DEFAULT_FILTERS, country } : DEFAULT_FILTERS;
+    const minConfidenceRaw = searchParams.get('minConfidence');
+    const minConfidence = minConfidenceRaw != null ? Number(minConfidenceRaw) : undefined;
+    return {
+      ...DEFAULT_FILTERS,
+      ...(country ? { country } : {}),
+      ...(minConfidence !== undefined && !Number.isNaN(minConfidence)
+        ? { minConfidence }
+        : {}),
+    };
   });
   const [data, setData] = useState<JobsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -180,7 +189,11 @@ export default function JobsPage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Job Listings</h1>
+            <SectionTitleWithInfo
+              title="Job Listings"
+              label="Jobs"
+              content={SECTION_INFO.jobs}
+            />
             <p className="text-sky-200 text-sm mt-0.5">
               Filter by Region → Europe → Country → Job Website
             </p>

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { triggerCountryScrape } from '@/lib/api';
-import { REGIONS } from '@/lib/regions';
+import { REGIONS, isCountryFullyBlocked, getWebsiteBlockReason } from '@/lib/regions';
+import { SectionTitleWithInfo, SECTION_INFO } from '@/components/ui/SectionInfoButton';
 
 interface ModalState {
   country: string;
@@ -43,9 +44,14 @@ export default function SourcesPage() {
         className="px-8 py-6 border-b border-slate-200/60"
         style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%)' }}
       >
-        <h1 className="text-2xl font-bold text-white">Sources</h1>
+        <SectionTitleWithInfo
+          title="Sources"
+          label="Sources"
+          content={SECTION_INFO.sources}
+        />
         <p className="text-indigo-200 text-sm mt-0.5">
           Country-specific job websites — click a country to scrape jobs
+          <span className="ml-2 text-red-200">· Red = blocked / closed</span>
         </p>
       </div>
 
@@ -68,26 +74,45 @@ export default function SourcesPage() {
           <div key={region.name} className="mb-8">
             <h2 className="text-lg font-bold text-slate-800 mb-4">{region.name}</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {region.countries.map((country) => (
-                <button
-                  key={country.name}
-                  onClick={() =>
-                    handleCountryClick(
-                      country.name,
-                      country.websites[0].name,
-                      country.websites[0].url,
-                    )
-                  }
-                  className="group bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
-                >
-                  <div className="font-medium text-sm text-slate-800 group-hover:text-indigo-700 transition-colors">
-                    {country.name}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1 truncate">
-                    {country.websites.map((w) => w.name).join(', ')}
-                  </div>
-                </button>
-              ))}
+              {region.countries.map((country) => {
+                const blocked = isCountryFullyBlocked(country);
+                const site = country.websites[0];
+                const reason = site ? getWebsiteBlockReason(site.name) : null;
+                return (
+                  <button
+                    key={country.name}
+                    onClick={() =>
+                      handleCountryClick(
+                        country.name,
+                        country.websites[0].name,
+                        country.websites[0].url,
+                      )
+                    }
+                    title={blocked && reason ? `Blocked: ${reason}` : undefined}
+                    className={`group rounded-xl p-4 text-left transition-all cursor-pointer border ${
+                      blocked
+                        ? 'bg-red-50 border-red-200 hover:border-red-300 hover:shadow-md'
+                        : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md'
+                    }`}
+                  >
+                    <div
+                      className={`font-medium text-sm transition-colors ${
+                        blocked
+                          ? 'text-red-700 group-hover:text-red-800'
+                          : 'text-slate-800 group-hover:text-indigo-700'
+                      }`}
+                    >
+                      {country.name}
+                    </div>
+                    <div className={`text-xs mt-1 truncate ${blocked ? 'text-red-500' : 'text-slate-500'}`}>
+                      {country.websites.map((w) => w.name).join(', ')}
+                    </div>
+                    {blocked && reason && (
+                      <div className="text-[10px] text-red-400 mt-1.5 line-clamp-1">{reason}</div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}

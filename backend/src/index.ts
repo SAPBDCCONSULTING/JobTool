@@ -11,7 +11,7 @@ const app = express();
 app.use(
   cors({
     origin: '*', // Tighten in production to your frontend domain
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }),
 );

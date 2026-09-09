@@ -184,6 +184,50 @@ export const EUROPE_COUNTRIES = REGIONS.find((r) => r.name === 'Europe')!.countr
   (c) => c.name,
 );
 
+/**
+ * Europe sites that are anti-bot / closed (from backend/scraper/SITES_STATUS.md).
+ * Key = website name as in REGIONS.
+ */
+export const BLOCKED_EUROPE_SITES: Record<string, string> = {
+  'duapune.com': 'Cloudflare Turnstile',
+  'vdab.be': 'Login + captcha',
+  'jobs.bg': 'Cloudflare 403',
+  'cv.ee': 'Cloudflare',
+  'stepstone.de': 'CDN Access Denied',
+  'kariera.gr': 'Cloudflare blocked',
+  'jobs.ie': 'CDN Access Denied',
+  'infojobs.it': 'Site closed',
+  'cv.lv': 'Search HTTP 500',
+  'cvbankas.lt': 'Cloudflare',
+  'jobs.lu': 'Akamai',
+  'keepmeposted.com.mt': 'Cloudflare 403',
+  'pracuj.pl': 'Cloudflare',
+  'profesia.sk': 'CDN blocked',
+  'nationalevacaturebank.nl': 'Anti-bot',
+  'robota.ua': 'Anti-bot',
+};
+
+export function isWebsiteBlocked(websiteName: string): boolean {
+  return getWebsiteBlockReason(websiteName) != null;
+}
+
+export function getWebsiteBlockReason(websiteName: string): string | null {
+  const entry = Object.entries(BLOCKED_EUROPE_SITES).find(
+    ([k]) => k.toLowerCase() === websiteName.toLowerCase(),
+  );
+  return entry ? entry[1] : null;
+}
+
+/** True if every listed site for the country is blocked. */
+export function isCountryFullyBlocked(country: CountryNode): boolean {
+  return country.websites.length > 0 && country.websites.every((w) => isWebsiteBlocked(w.name));
+}
+
+/** True if at least one site is blocked (may still have a working alternative). */
+export function isCountryPartiallyBlocked(country: CountryNode): boolean {
+  return country.websites.some((w) => isWebsiteBlocked(w.name));
+}
+
 export type RegionSelection =
   | { level: 'all' }
   | { level: 'region'; region: string }
