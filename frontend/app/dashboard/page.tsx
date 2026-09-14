@@ -6,7 +6,8 @@ import { fetchStats } from '@/lib/api';
 import type { SearchResult, StatsResponse } from '@/lib/types';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { SearchForm } from '@/components/search/SearchForm';
-import { ConfidenceBadge, DomainBadge, StatusBadge } from '@/components/ui/ConfidenceBadge';
+import { TopOpportunities } from '@/components/dashboard/TopOpportunities';
+import { RelevanceBadge, DomainBadge, StatusBadge } from '@/components/ui/RelevanceBadge';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -224,9 +225,9 @@ export default function DashboardPage() {
             }
           />
           <StatsCard
-            title="High Confidence"
-            value={loading ? '—' : (stats?.highConfidence ?? 0)}
-            subtitle="confidence score ≥ 70%"
+            title="Relevant Jobs"
+            value={loading ? '—' : (stats?.relevantJobs ?? 0)}
+            subtitle="AI relevance ≥ 40"
             gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
             icon={
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
@@ -242,6 +243,10 @@ export default function DashboardPage() {
           {/* Search form */}
           <div className="xl:col-span-1">
             <SearchForm onSuccess={handleSearchQueued} />
+
+            <div className="mt-4">
+              <TopOpportunities />
+            </div>
 
             {searchTracking && (
               <div className="mt-4 bg-indigo-50 border border-indigo-200 text-indigo-800 px-4 py-3 rounded-2xl text-xs font-medium">
@@ -362,8 +367,8 @@ export default function DashboardPage() {
                     </div>
                     <DomainBadge domain={job.domain} />
                     <StatusBadge status={job.aiStatus} />
-                    {job.confidence !== null && (
-                      <ConfidenceBadge value={job.confidence} />
+                    {job.relevanceScore !== null && (
+                      <RelevanceBadge value={job.relevanceScore} />
                     )}
                   </div>
                 ))}

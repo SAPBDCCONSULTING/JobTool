@@ -18,9 +18,7 @@ const STATUS_OPTIONS: { value: AiStatus | ''; label: string }[] = [
 ];
 
 export function JobFiltersBar({ filters, onChange }: JobFiltersProps) {
-  const [confidenceDisplay, setConfidenceDisplay] = useState(
-    filters.minConfidence !== undefined ? Math.round(filters.minConfidence * 100) : 0,
-  );
+  const [relevanceDisplay, setRelevanceDisplay] = useState(filters.minRelevance ?? 0);
 
   const update = (patch: Partial<JobFilters>) => onChange({ ...filters, ...patch, page: 1 });
 
@@ -73,32 +71,32 @@ export function JobFiltersBar({ filters, onChange }: JobFiltersProps) {
           </select>
         </div>
 
-        {/* Confidence slider */}
+        {/* Relevance slider */}
         <div className="min-w-[180px]">
           <label className="block text-xs font-medium text-slate-500 mb-1.5">
-            Min Confidence:{' '}
-            <span className="font-semibold text-indigo-600">{confidenceDisplay}%</span>
+            Min Relevance:{' '}
+            <span className="font-semibold text-indigo-600">{relevanceDisplay}</span>
           </label>
           <input
             type="range"
             min={0}
             max={100}
             step={5}
-            value={confidenceDisplay}
+            value={relevanceDisplay}
             onChange={(e) => {
               const v = parseInt(e.target.value);
-              setConfidenceDisplay(v);
-              update({ minConfidence: v > 0 ? v / 100 : undefined });
+              setRelevanceDisplay(v);
+              update({ minRelevance: v > 0 ? v : undefined });
             }}
             className="w-full accent-indigo-600 h-2 cursor-pointer"
           />
         </div>
 
         {/* Clear (keeps left-side region/country/website selection) */}
-        {(filters.companyName || filters.domain || filters.aiStatus || filters.minConfidence) && (
+        {(filters.companyName || filters.domain || filters.aiStatus || filters.minRelevance) && (
           <button
             onClick={() => {
-              setConfidenceDisplay(0);
+              setRelevanceDisplay(0);
               onChange({
                 page: 1,
                 limit: filters.limit,

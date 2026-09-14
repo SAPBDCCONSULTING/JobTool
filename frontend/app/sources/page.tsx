@@ -1,39 +1,90 @@
 'use client';
 
-import { useState } from 'react';
-import { triggerCountryScrape } from '@/lib/api';
-import { REGIONS } from '@/lib/regions';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { fetchSources, toggleSource, scrapeSource } from '@/lib/api';
+import type { Source } from '@/lib/types';
+
+const STATUS_STYLES: Record<string, string> = {
+  QUEUED: 'bg-amber-100 text-amber-700',
+  RUNNING: 'bg-indigo-100 text-indigo-700',
+  SUCCESS: 'bg-emerald-100 text-emerald-700',
+  FAILED: 'bg-red-100 text-red-700',
+};
 
 interface ModalState {
-  country: string;
-  website: string;
-  websiteUrl: string;
+  source: Source;
 }
 
 export default function SourcesPage() {
+  const [sources, setSources] = useState<Source[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [modal, setModal] = useState<ModalState | null>(null);
   const [keyword, setKeyword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [scraping, setScraping] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
-  const handleCountryClick = (country: string, websiteName: string, websiteUrl: string) => {
-    setModal({ country, website: websiteName, websiteUrl });
-    setKeyword('');
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const data = await fetchSources();
+      setSources(data.sources);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load sources');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const grouped = useMemo(() => {
+    const byCountry = new Map<string, Source[]>();
+    for (const s of sources) {
+      const key = s.type === 'APIFY' ? 'LinkedIn (Apify)' : s.country ?? 'Other';
+      if (!byCountry.has(key)) byCountry.set(key, []);
+      byCountry.get(key)!.push(s);
+    }
+    return [...byCountry.entries()].sort(([a], [b]) =>
+      a === 'LinkedIn (Apify)' ? -1 : b === 'LinkedIn (Apify)' ? 1 : a.localeCompare(b),
+    );
+  }, [sources]);
+
+  const enabledCount = sources.filter((s) => s.enabled).length;
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  const handleToggle = async (s: Source) => {
+    setToggling(s.id);
+    try {
+      const { source } = await toggleSource(s.name, !s.enabled);
+      setSources((prev) => prev.map((x) => (x.id === s.id ? source : x)));
+      showToast(source.enabled ? `${source.name} enabled for scheduled runs` : `${source.name} disabled`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Toggle failed');
+    } finally {
+      setToggling(null);
+    }
   };
 
   const handleScrape = async () => {
     if (!modal || !keyword.trim()) return;
-    setLoading(true);
+    setScraping(true);
     try {
-      const res = await triggerCountryScrape(modal.country, modal.websiteUrl, keyword.trim());
-      setToast(res.message);
-      setTimeout(() => setToast(null), 6000);
+      const res = await scrapeSource(modal.source.name, keyword.trim());
+      showToast(res.message);
       setModal(null);
+      setKeyword('');
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Scrape failed');
-      setTimeout(() => setToast(null), 6000);
+      showToast(err instanceof Error ? err.message : 'Scrape failed');
     } finally {
-      setLoading(false);
+      setScraping(false);
     }
   };
 
@@ -45,67 +96,122 @@ export default function SourcesPage() {
       >
         <h1 className="text-2xl font-bold text-white">Sources</h1>
         <p className="text-indigo-200 text-sm mt-0.5">
-          Country-specific job websites — click a country to scrape jobs
+          {sources.length} sources · {enabledCount} enabled for scheduled runs — click a site to scrape now
         </p>
       </div>
 
       <div className="px-8 py-7">
         {toast && (
           <div className="mb-6 flex items-start gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl text-sm font-medium shadow-sm">
-            <svg className="flex-shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
             {toast}
-            <button onClick={() => setToast(null)} className="ml-auto text-emerald-600 hover:text-emerald-800">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+            <button onClick={() => setToast(null)} className="ml-auto text-emerald-600">
+              ✕
             </button>
           </div>
         )}
 
-        {REGIONS.map((region) => (
-          <div key={region.name} className="mb-8">
-            <h2 className="text-lg font-bold text-slate-800 mb-4">{region.name}</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-              {region.countries.map((country) => (
-                <button
-                  key={country.name}
-                  onClick={() =>
-                    handleCountryClick(
-                      country.name,
-                      country.websites[0].name,
-                      country.websites[0].url,
-                    )
-                  }
-                  className="group bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
-                >
-                  <div className="font-medium text-sm text-slate-800 group-hover:text-indigo-700 transition-colors">
-                    {country.name}
-                  </div>
-                  <div className="text-xs text-slate-500 mt-1 truncate">
-                    {country.websites.map((w) => w.name).join(', ')}
-                  </div>
-                </button>
-              ))}
-            </div>
+        {loading && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center text-slate-400 text-sm">
+            Loading sources…
           </div>
-        ))}
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm mb-4">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && (
+          <div className="space-y-8">
+            {grouped.map(([country, list]) => (
+              <div key={country}>
+                <h2 className="text-lg font-bold text-slate-800 mb-4">{country}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {list.map((s) => {
+                    const lastRun = s.runs?.[0];
+                    return (
+                      <div
+                        key={s.id}
+                        className={`bg-white border rounded-xl p-4 transition-all ${
+                          s.enabled
+                            ? 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
+                            : 'border-slate-100 opacity-70'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <button
+                            onClick={() => {
+                              setModal({ source: s });
+                              setKeyword('');
+                            }}
+                            className="text-left flex-1 min-w-0"
+                          >
+                            <p className="font-medium text-sm text-slate-800 truncate hover:text-indigo-700">
+                              {s.website ? s.website.replace(/^https?:\/\//, '') : s.name}
+                            </p>
+                            {lastRun ? (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                    STATUS_STYLES[lastRun.status] ?? 'bg-slate-100 text-slate-600'
+                                  }`}
+                                >
+                                  {lastRun.status}
+                                </span>
+                                <span className="text-[11px] text-slate-400">
+                                  {lastRun.itemsNew} new · {lastRun.itemsDup} dup
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 mt-1">never run</p>
+                            )}
+                            {lastRun?.error && (
+                              <p className="text-[11px] text-red-500 mt-1 truncate" title={lastRun.error}>
+                                {lastRun.error}
+                              </p>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleToggle(s)}
+                            disabled={toggling === s.id || s.type === 'APIFY'}
+                            title={
+                              s.type === 'APIFY'
+                                ? 'LinkedIn is always enabled'
+                                : s.enabled
+                                  ? 'Disable'
+                                  : 'Enable'
+                            }
+                            className={`flex-shrink-0 w-9 rounded-full px-1 py-1 transition-colors ${
+                              s.enabled ? 'bg-emerald-400' : 'bg-slate-300'
+                            } ${s.type === 'APIFY' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          >
+                            <div
+                              className={`h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                                s.enabled ? 'translate-x-4' : ''
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Keyword Modal */}
+      {/* Scrape keyword modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 mx-4">
             <h3 className="text-lg font-bold text-slate-800 mb-1">
-              Scrape {modal.country}
+              Scrape {modal.source.country ?? modal.source.name}
             </h3>
-            <p className="text-sm text-slate-500 mb-4">
-              Source: {modal.website}
-            </p>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">
-              Search keyword
-            </label>
+            <p className="text-sm text-slate-500 mb-4">Source: {modal.source.name}</p>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Search keyword</label>
             <input
               type="text"
               value={keyword}
@@ -124,20 +230,11 @@ export default function SourcesPage() {
               </button>
               <button
                 onClick={handleScrape}
-                disabled={loading || !keyword.trim()}
-                className="flex-1 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={scraping || !keyword.trim()}
+                className="flex-1 py-2.5 text-sm font-semibold text-white rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
               >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                    </svg>
-                    Scraping…
-                  </>
-                ) : (
-                  'Scrape Jobs'
-                )}
+                {scraping ? 'Scraping…' : 'Scrape Jobs'}
               </button>
             </div>
           </div>
@@ -146,3 +243,4 @@ export default function SourcesPage() {
     </div>
   );
 }
+

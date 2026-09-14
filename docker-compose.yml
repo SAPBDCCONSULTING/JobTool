@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: jobtool
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -50,23 +50,8 @@ services:
       NODE_ENV: production
     ports:
       - "4000:4000"
-
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - ./backend/.env
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/jobtool
-      REDIS_URL: redis://redis:6379
-      NODE_ENV: production
+    # The Dockerfile runs `dist/main.js` — HTTP API + all 7 background workers
+    # in a single process (merged; no separate worker container needed).
 
 volumes:
   postgres_data:

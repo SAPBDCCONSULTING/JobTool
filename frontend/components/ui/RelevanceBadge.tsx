@@ -1,14 +1,15 @@
-interface ConfidenceBadgeProps {
+interface RelevanceBadgeProps {
   value: number | null;
   showBar?: boolean;
 }
 
-export function ConfidenceBadge({ value, showBar = false }: ConfidenceBadgeProps) {
+/** Job relevance score (0-100) from the AI analysis. */
+export function RelevanceBadge({ value, showBar = false }: RelevanceBadgeProps) {
   if (value === null || value === undefined) {
     return <span className="text-xs text-slate-400 italic">—</span>;
   }
 
-  const pct = Math.round(value * 100);
+  const pct = Math.round(value);
 
   const getConfig = () => {
     if (pct >= 80) return { bg: 'bg-emerald-50', text: 'text-emerald-700', bar: 'bg-emerald-500', ring: 'ring-emerald-200' };
@@ -28,14 +29,14 @@ export function ConfidenceBadge({ value, showBar = false }: ConfidenceBadgeProps
             style={{ width: `${pct}%` }}
           />
         </div>
-        <span className={`text-xs font-semibold min-w-[32px] ${config.text}`}>{pct}%</span>
+        <span className={`text-xs font-semibold min-w-[32px] ${config.text}`}>{pct}</span>
       </div>
     );
   }
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ${config.bg} ${config.text} ${config.ring}`}>
-      {pct}%
+      {pct}
     </span>
   );
 }

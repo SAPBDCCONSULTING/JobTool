@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { fetchJobs, triggerCountryScrape, fetchScrapeStatus, type ScrapeStatusResponse } from '@/lib/api';
@@ -56,7 +57,7 @@ function filtersToSelection(filters: JobFilters): RegionSelection {
   return { level: 'all' };
 }
 
-export default function JobsPage() {
+function JobsPageInner() {
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<JobFilters>(() => {
     const country = searchParams.get('country');
@@ -331,5 +332,17 @@ export default function JobsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-full flex items-center justify-center text-sm text-slate-400">
+        Loading jobs…
+      </div>
+    }>
+      <JobsPageInner />
+    </Suspense>
   );
 }

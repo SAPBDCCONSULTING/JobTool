@@ -1,5 +1,9 @@
+'use client';
+
+import { useState } from 'react';
 import type { Job } from '@/lib/types';
-import { ConfidenceBadge, StatusBadge, DomainBadge } from '@/components/ui/ConfidenceBadge';
+import { RelevanceBadge, StatusBadge, DomainBadge } from '@/components/ui/RelevanceBadge';
+import { JobDetailDrawer } from '@/components/jobs/JobDetailDrawer';
 
 interface JobsTableProps {
   jobs: Job[];
@@ -7,6 +11,7 @@ interface JobsTableProps {
 }
 
 export function JobsTable({ jobs, loading }: JobsTableProps) {
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   if (loading) {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -59,7 +64,7 @@ export function JobsTable({ jobs, loading }: JobsTableProps) {
                 Domain
               </th>
               <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Confidence
+                Relevance
               </th>
               <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Status
@@ -76,21 +81,13 @@ export function JobsTable({ jobs, loading }: JobsTableProps) {
                 className="hover:bg-indigo-50/30 transition-colors group"
               >
                 <td className="px-6 py-4">
-                  {job.jobUrl ? (
-                    <a
-                      href={job.jobUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium text-indigo-700 hover:text-indigo-800 hover:underline text-sm leading-tight max-w-[280px] inline-block"
-                      title={job.jobUrl}
-                    >
-                      {job.jobTitle}
-                    </a>
-                  ) : (
-                    <div className="font-medium text-slate-800 text-sm leading-tight max-w-[280px]">
-                      {job.jobTitle}
-                    </div>
-                  )}
+                  <button
+                    onClick={() => setSelectedJobId(job.id)}
+                    className="text-left font-medium text-indigo-700 hover:text-indigo-800 hover:underline text-sm leading-tight max-w-[280px] inline-block"
+                    title="View job details"
+                  >
+                    {job.jobTitle}
+                  </button>
                   {job.aiReason && (
                     <div
                       className="text-xs text-slate-400 mt-1 max-w-[280px] truncate opacity-0 group-hover:opacity-100 transition-opacity"
@@ -126,7 +123,7 @@ export function JobsTable({ jobs, loading }: JobsTableProps) {
                   <DomainBadge domain={job.domain} />
                 </td>
                 <td className="px-4 py-4">
-                  <ConfidenceBadge value={job.confidence} showBar />
+                  <RelevanceBadge value={job.relevanceScore} showBar />
                 </td>
                 <td className="px-4 py-4">
                   <StatusBadge status={job.aiStatus} />
@@ -144,6 +141,7 @@ export function JobsTable({ jobs, loading }: JobsTableProps) {
           </tbody>
         </table>
       </div>
+      <JobDetailDrawer jobId={selectedJobId} onClose={() => setSelectedJobId(null)} />
     </div>
   );
 }

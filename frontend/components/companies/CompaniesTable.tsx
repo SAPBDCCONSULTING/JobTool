@@ -1,9 +1,16 @@
+import Link from 'next/link';
 import type { Company } from '@/lib/types';
-import { ConfidenceBadge, DomainBadge } from '@/components/ui/ConfidenceBadge';
 
 interface CompaniesTableProps {
   companies: Company[];
   loading?: boolean;
+}
+
+function scoreColor(score: number): string {
+  if (score >= 80) return 'bg-emerald-500';
+  if (score >= 60) return 'bg-blue-500';
+  if (score >= 40) return 'bg-amber-500';
+  return 'bg-slate-400';
 }
 
 export function CompaniesTable({ companies, loading }: CompaniesTableProps) {
@@ -13,12 +20,11 @@ export function CompaniesTable({ companies, loading }: CompaniesTableProps) {
         <div className="animate-pulse">
           {[...Array(10)].map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-slate-100 last:border-0">
-              <div className="w-9 h-9 bg-slate-200 rounded-xl" />
+              <div className="w-10 h-10 bg-slate-200 rounded-xl" />
               <div className="flex-1 space-y-1.5">
                 <div className="h-3 bg-slate-200 rounded w-1/4" />
                 <div className="h-2.5 bg-slate-200 rounded w-1/6" />
               </div>
-              <div className="h-5 bg-slate-200 rounded w-16" />
               <div className="h-5 bg-slate-200 rounded-full w-20" />
             </div>
           ))}
@@ -37,7 +43,9 @@ export function CompaniesTable({ companies, loading }: CompaniesTableProps) {
           </svg>
         </div>
         <p className="text-slate-500 font-medium">No companies yet</p>
-        <p className="text-slate-400 text-sm mt-1">Companies appear after AI classification is complete</p>
+        <p className="text-slate-400 text-sm mt-1">
+          Companies appear after jobs are fetched and analyzed
+        </p>
       </div>
     );
   }
@@ -50,59 +58,70 @@ export function CompaniesTable({ companies, loading }: CompaniesTableProps) {
             <tr style={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}>
               <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider w-10">#</th>
               <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Company</th>
-              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Country</th>
-              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Jobs</th>
-              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Confidence</th>
-              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Top Domain</th>
-              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Hiring Signal</th>
+              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Score</th>
+              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Jobs</th>
+              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Likely Initiative</th>
+              <th className="text-left px-4 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Recommended Service</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {companies.map((company, index) => {
-              const signal =
-                (company.avgConfidence ?? 0) >= 0.85
-                  ? { label: 'Very Strong', color: 'text-emerald-600 bg-emerald-50' }
-                  : (company.avgConfidence ?? 0) >= 0.7
-                  ? { label: 'Strong', color: 'text-blue-600 bg-blue-50' }
-                  : (company.avgConfidence ?? 0) >= 0.5
-                  ? { label: 'Moderate', color: 'text-amber-600 bg-amber-50' }
-                  : { label: 'Weak', color: 'text-slate-500 bg-slate-100' };
-
+              const score = company.score ?? null;
+              const service = company.recommendedServices?.[0];
               return (
-                <tr key={`${company.companyName}-${company.country}`} className="hover:bg-indigo-50/30 transition-colors">
+                <tr key={company.id} className="hover:bg-indigo-50/30 transition-colors">
                   <td className="px-6 py-4">
                     <span className="text-sm font-medium text-slate-400">{index + 1}</span>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
+                    <Link href={`/companies/${company.id}`} className="flex items-center gap-3 group">
                       <div
                         className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                        style={{
-                          background: `hsl(${(company.companyName.charCodeAt(0) * 47) % 360}, 65%, 50%)`,
-                        }}
+                        style={{ background: `hsl(${(company.companyName.charCodeAt(0) * 47) % 360}, 65%, 50%)` }}
                       >
                         {company.companyName.charAt(0).toUpperCase()}
                       </div>
-                      <span className="font-semibold text-slate-800 text-sm">{company.companyName}</span>
-                    </div>
+                      <div>
+                        <span className="font-semibold text-slate-800 text-sm group-hover:text-indigo-700 group-hover:underline">
+                          {company.companyName}
+                        </span>
+                        {company.country && <div className="text-xs text-slate-400">{company.country}</div>}
+                      </div>
+                    </Link>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-sm text-slate-600">{company.country}</span>
+                    {score !== null ? (
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center justify-center w-9 h-9 rounded-xl text-white text-sm font-bold ${scoreColor(score)}`}>
+                          {Math.round(score)}
+                        </span>
+                        {company.scoreExplanation && (
+                          <span className="text-xs text-slate-400 max-w-40 truncate" title={company.scoreExplanation}>
+                            {company.scoreExplanation}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">not scored yet</span>
+                    )}
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-sm font-semibold text-slate-800">{company.jobCount.toLocaleString()}</span>
-                    <span className="text-xs text-slate-400 ml-1">jobs</span>
+                    <span className="text-sm font-semibold text-slate-800">{company.activeJobs ?? company.jobCount}</span>
+                    {company.jobs7d != null && company.jobs7d > 0 && (
+                      <span className="text-xs text-emerald-600 ml-1.5">+{company.jobs7d} this week</span>
+                    )}
                   </td>
                   <td className="px-4 py-4">
-                    <ConfidenceBadge value={company.avgConfidence} showBar />
+                    <span className="text-sm text-slate-600">{company.likelyInitiative ?? '—'}</span>
                   </td>
                   <td className="px-4 py-4">
-                    <DomainBadge domain={company.topDomain} />
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${signal.color}`}>
-                      {signal.label}
-                    </span>
+                    {service ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                        {service}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">—</span>
+                    )}
                   </td>
                 </tr>
               );

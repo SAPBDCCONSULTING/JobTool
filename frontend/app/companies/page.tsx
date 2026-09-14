@@ -22,13 +22,11 @@ export default function CompaniesPage() {
     (c) =>
       !search ||
       c.companyName.toLowerCase().includes(search.toLowerCase()) ||
-      c.country.toLowerCase().includes(search.toLowerCase()),
+      (c.country ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
   const totalJobs = companies.reduce((sum, c) => sum + c.jobCount, 0);
-  const avgConf = companies.length
-    ? companies.reduce((sum, c) => sum + (c.avgConfidence ?? 0), 0) / companies.length
-    : 0;
+  const scoredCount = companies.filter((c) => c.score !== null).length;
 
   return (
     <div className="min-h-full">
@@ -39,33 +37,24 @@ export default function CompaniesPage() {
       >
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">Company Intelligence</h1>
+            <h1 className="text-2xl font-bold text-white">Companies</h1>
             <p className="text-emerald-100 text-sm mt-0.5">
-              Ranked by hiring intent signal strength
+              Ranked by opportunity score — who should we pitch?
             </p>
           </div>
           {!loading && (
             <div className="flex gap-3">
-              <div
-                className="px-4 py-2 rounded-xl text-center"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
+              <div className="px-4 py-2 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <div className="text-lg font-bold text-white">{companies.length}</div>
                 <div className="text-xs text-emerald-100">Companies</div>
               </div>
-              <div
-                className="px-4 py-2 rounded-xl text-center"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
+              <div className="px-4 py-2 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <div className="text-lg font-bold text-white">{totalJobs.toLocaleString()}</div>
                 <div className="text-xs text-emerald-100">Total Jobs</div>
               </div>
-              <div
-                className="px-4 py-2 rounded-xl text-center"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
-                <div className="text-lg font-bold text-white">{Math.round(avgConf * 100)}%</div>
-                <div className="text-xs text-emerald-100">Avg Score</div>
+              <div className="px-4 py-2 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                <div className="text-lg font-bold text-white">{scoredCount}</div>
+                <div className="text-xs text-emerald-100">Scored</div>
               </div>
             </div>
           )}

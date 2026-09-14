@@ -1,8 +1,10 @@
 # dependencies
 node_modules/
 
-# local env files
-.env*
+# local env files (keep .env.example as a tracked template)
+.env
+.env.*
+!.env.example
 
 # logs
 npm-debug.log*
@@ -26,6 +28,16 @@ pnpm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # temporary
 *.tmp
