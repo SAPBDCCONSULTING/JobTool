@@ -1,0 +1,12 @@
+# Dependencies & build output (rebuilt inside the image)
+node_modules
+dist
+
+# Python virtualenv + bytecode (rebuilt inside the image)
+scraper/venv
+**/__pycache__
+**/*.pyc
+
+# Secrets & logs
+.env
+*.log

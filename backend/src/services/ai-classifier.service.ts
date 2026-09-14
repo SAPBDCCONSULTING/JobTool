@@ -2,55 +2,71 @@ import { Agent, run } from '@openai/agents';
 import { z } from 'zod';
 import { logger } from '../lib/logger.js';
 
-// ─── Output schema ────────────────────────────────────────────
-const ClassificationSchema = z.object({
-  is_primary: z.boolean(),
-  confidence: z.number().min(0).max(1),
+// ─── Output schema (v1 analysis) ─────────────────────────────
+export const JobAnalysisSchema = z.object({
+  relevance_score: z.number().min(0).max(100),
+  technologies: z.array(z.string()).max(12),
+  role_category: z.string(),
+  seniority: z.string(),
+  project_type: z.string(),
+  outsourcing_potential: z.number().min(0).max(1),
+  summary: z.string(),
   reason: z.string(),
 });
 
-export type ClassificationResult = z.infer<typeof ClassificationSchema>;
+export type JobAnalysisResult = z.infer<typeof JobAnalysisSchema>;
+
+export const JOB_PROMPT_VERSION = 'job-analysis-v2';
+export const JOB_MODEL = 'gpt-4o-mini';
 
 // ─── Agent definition (created once, reused across calls) ────
 const classifierAgent = new Agent({
-  name: 'HiringIntentClassifier',
-  model: 'gpt-4o-mini',
-  instructions: `You are an expert hiring intent classifier for enterprise technology consulting.
+  name: 'JobIntelligenceAnalyzer',
+  model: JOB_MODEL,
+  instructions: `You are an expert hiring-intelligence analyst for enterprise technology consulting (SAP / ERP / Cloud / Data).
 
-Your task: analyze a job posting and determine if it signals that the company is ACTIVELY INVESTING in SAP, ERP, Cloud, or Data & Analytics systems.
+Analyze a job posting and produce a structured assessment of what the hire signals about the company's investment and how sellable the opportunity is for a consulting/outsourcing firm.
 
-You MUST respond with ONLY a valid JSON object — no markdown, no explanation outside JSON:
+Respond with ONLY a valid JSON object — no markdown, no explanation outside JSON:
 {
-  "is_primary": <boolean>,
-  "confidence": <float 0.0-1.0>,
-  "reason": "<1-2 sentences>"
+  "relevance_score": <int 0-100>,   // how relevant is this role to SAP/ERP/Cloud/Data consulting opportunities
+  "technologies": ["S/4HANA", "FICO", "BTP", ...],  // specific SAP modules / ERP / cloud / data technologies mentioned (max 8, [] if none)
+  "role_category": "<functional | technical | techno-functional | leadership | data | cloud | other>",
+  "seniority": "<junior | mid | senior | lead | principal | director | vp+ | unknown>",
+  "project_type": "<implementation | migration | rollout | support | transformation | greenfield | brownfield | integration | managed-services | unknown>",
+  "outsourcing_potential": <float 0.0-1.0>,  // 0.9+ = clearly outsourceable body-of-work; 0.5 = mixed; 0.2 = internal strategic role
+  "summary": "<1-2 sentence plain summary of what this hiring signals>",
+  "reason": "<1-2 sentence justification of the relevance score>"
 }
 
-Definitions:
-- is_primary: true if this is a hands-on technical or leadership role (architect, consultant, developer, analyst, engineer, project manager for these systems). false if it's support, training, sales, or peripheral.
-- confidence: how strongly does this job signal the company is investing in these tech areas?
-  - 0.9-1.0: Direct implementation — "SAP S/4HANA Lead Consultant", "Cloud Migration Architect"
-  - 0.7-0.89: Strong signal — "ERP Project Manager", "Data Engineer building new platform"
-  - 0.5-0.69: Moderate signal — "IT Manager overseeing cloud systems"
-  - 0.3-0.49: Weak signal — "IT Support with SAP exposure"
-  - 0.0-0.29: No meaningful signal
+Scoring guidance for relevance_score:
+  90-100: core SAP module consultant/architect (S/4HANA, FICO, MM, SD, ABAP, BTP, SAC)
+  75-89:  strong ERP/Cloud/Data roles clearly tied to enterprise transformation
+  55-74:  adjacent roles (ERP project managers, integration engineers, data engineers)
+  30-54:  weak/peripheral (IT support with some SAP exposure, general PM)
+  0-29:   not relevant
 
-Focus on: technology-specific roles that indicate NEW investment or transformation, not routine maintenance.`,
-  outputType: ClassificationSchema,
+outsourcing_potential guidance:
+  - implementation/migration/rollout/support/managed-services roles → high (0.7-1.0)
+  - integration/techno-functional → medium-high (0.5-0.8)
+  - transformation leadership, strategy, internal-only roles → low (0.1-0.4)`,
+  outputType: JobAnalysisSchema,
 });
 
-export async function classifyJob(job: {
+export async function analyzeJob(job: {
   jobTitle: string;
   jobDescription: string;
   companyName: string;
-}): Promise<ClassificationResult> {
+  keyword?: string;
+}): Promise<JobAnalysisResult> {
   const userMessage = `Company: ${job.companyName}
 Job Title: ${job.jobTitle}
+${job.keyword ? `Search context: ${job.keyword}` : ''}
 
 Job Description:
-${job.jobDescription.slice(0, 3000)}`;
+${job.jobDescription.slice(0, 4000)}`;
 
-  logger.debug({ jobTitle: job.jobTitle, company: job.companyName }, 'Classifying job with AI');
+  logger.debug({ jobTitle: job.jobTitle, company: job.companyName }, 'Analyzing job with AI');
 
   const result = await run(classifierAgent, userMessage);
 
@@ -60,7 +76,7 @@ ${job.jobDescription.slice(0, 3000)}`;
 
   // Handle both cases: outputType parsed it already, or it's a raw string
   if (typeof result.finalOutput === 'object') {
-    return ClassificationSchema.parse(result.finalOutput);
+    return JobAnalysisSchema.parse(result.finalOutput);
   }
 
   // Parse raw JSON string output
@@ -68,5 +84,5 @@ ${job.jobDescription.slice(0, 3000)}`;
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error(`Could not extract JSON from AI response: ${raw.slice(0, 200)}`);
 
-  return ClassificationSchema.parse(JSON.parse(jsonMatch[0]));
+  return JobAnalysisSchema.parse(JSON.parse(jsonMatch[0]));
 }

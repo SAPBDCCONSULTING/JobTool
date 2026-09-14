@@ -57,7 +57,7 @@ export async function triggerApifyRun(
     enrichCompanyData: true,
     keyword: [keyword],
     location,
-    maxItems: 150,
+    maxItems: env.APIFY_MAX_ITEMS,
     publishedAt: 'r86400',
     saveOnlyUniqueItems: true,
   };
@@ -75,7 +75,7 @@ export async function triggerApifyRun(
 
 export async function waitForApifyRun(
   runId: string,
-  maxWaitMs = 300_000,
+  maxWaitMs = 600_000,
 ): Promise<string> {
   const pollInterval = 5_000;
   const deadline = Date.now() + maxWaitMs;

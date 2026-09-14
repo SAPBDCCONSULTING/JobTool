@@ -58,21 +58,60 @@ export interface FilterResult {
 }
 
 export function filterJob(job: { jobTitle?: string; description?: string }): FilterResult {
+  const { qualified, domain } = qualifyJob(job, undefined, 'strict');
+  return { relevant: qualified, domain };
+}
+
+export type QualificationMode = 'strict' | 'keyword';
+
+/**
+ * Word-boundary keyword match: every whitespace-separated token of the
+ * keyword must appear as a whole word (not a substring) in the text.
+ * Prevents false matches like "SAC" matching "Sacavém" or "sacred".
+ */
+export function keywordMatches(keyword: string, text: string): boolean {
+  const tokens = keyword.toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return false;
+  const lower = text.toLowerCase();
+  return tokens.every((token) => {
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, 'u').test(lower);
+  });
+}
+
+/**
+ * Deterministic qualification gate.
+ *  - Exclude rules ALWAYS apply (HR/sales/recruitment roles never reach AI).
+ *  - strict:  require a keep-rule match (LinkedIn path).
+ *  - keyword: keep if a keep-rule matches OR the search keyword appears
+ *             in the title/description (country-site scrapers already searched by keyword).
+ */
+export function qualifyJob(
+  job: { jobTitle?: string; description?: string },
+  keyword?: string,
+  mode: QualificationMode = 'strict',
+): { qualified: boolean; domain: string | null } {
   const text = `${job.jobTitle ?? ''} ${job.description ?? ''}`;
 
   for (const pattern of EXCLUDE_RULES) {
     if (pattern.test(text)) {
-      return { relevant: false, domain: null };
+      return { qualified: false, domain: null };
+    }
+  }
+
+  if (mode === 'keyword' && keyword) {
+    if (keywordMatches(keyword, text)) {
+      return { qualified: true, domain: null };
     }
   }
 
   for (const { pattern, domain } of KEEP_RULES) {
     if (pattern.test(text)) {
-      return { relevant: true, domain };
+      return { qualified: true, domain };
     }
   }
 
-  return { relevant: false, domain: null };
+  return { qualified: false, domain: null };
 }
 
 export function mapApifyItemToRaw(
@@ -85,6 +124,12 @@ export function mapApifyItemToRaw(
     String(item.id ?? item.jobId ?? '') ||
     `${item.companyName ?? 'unknown'}-${item.title ?? 'unknown'}-${Date.now()}`;
 
+  // Job link: explicit url, else reconstruct from the numeric LinkedIn job id
+  // (the actor returns companyUrl but often omits the job posting url).
+  const rawUrl = item.url ? String(item.url) : null;
+  const url =
+    rawUrl ?? (/^\d+$/.test(jobId) ? `https://www.linkedin.com/jobs/view/${jobId}` : null);
+
   return {
     jobId,
     jobTitle: String(item.title ?? item['jobTitle'] ?? 'Unknown Title'),
@@ -95,6 +140,7 @@ export function mapApifyItemToRaw(
     location: item.location ? String(item.location) : null,
     country: location,
     searchString: keyword,
+    url,
     publishedAt: item.publishedAt ? new Date(item.publishedAt) : null,
   };
 }

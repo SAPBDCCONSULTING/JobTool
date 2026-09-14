@@ -34,6 +34,45 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    label: 'Sources',
+    href: '/sources',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Keywords',
+    href: '/keywords',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+        <line x1="7" y1="7" x2="7.01" y2="7" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Runs',
+    href: '/runs',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Outreach',
+    href: '/outreach',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+        <polyline points="22,6 12,13 2,6" />
+      </svg>
+    ),
+  },
 ];
 
 export function Sidebar() {
@@ -46,7 +85,7 @@ export function Sidebar() {
     >
       {/* ── Brand ───────────────────────────────────────── */}
       <div className="px-6 py-6 border-b border-slate-700/60">
-        <div className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
@@ -59,11 +98,11 @@ export function Sidebar() {
             <h1 className="text-white font-bold text-base leading-tight">HireIntel</h1>
             <p className="text-slate-400 text-xs">AI Intelligence Platform</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* ── Navigation ──────────────────────────────────── */}
-      <nav className="flex-1 px-4 py-5 space-y-1">
+      <nav className="flex-1 px-4 py-5 space-y-1 overflow-y-auto">
         <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mb-3">
           Main Menu
         </p>
@@ -89,6 +128,21 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        <div className="pt-6 px-3">
+          <p className="text-slate-500 text-xs font-semibold uppercase tracking-widest mb-2">
+            Browse
+          </p>
+          <Link
+            href="/jobs"
+            className="block rounded-xl border border-slate-700/80 bg-slate-800/50 px-3 py-3 hover:border-indigo-400/40 hover:bg-slate-800 transition-colors"
+          >
+            <p className="text-slate-200 text-xs font-semibold">Region filter</p>
+            <p className="text-slate-500 text-[11px] mt-1 leading-relaxed">
+              Europe → Country → Job Website
+            </p>
+          </Link>
+        </div>
       </nav>
 
       {/* ── Footer ──────────────────────────────────────── */}

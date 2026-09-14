@@ -14,48 +14,206 @@ enum AiStatus {
   FAILED
 }
 
+enum RunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum SourceType {
+  APIFY
+  SCRAPER
+}
+
+enum LifecycleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Keyword {
+  id            String      @id @default(uuid())
+  term          String      @unique
+  category      String      @default("tech")
+  location      String? // Optional default location for Apify (e.g. "Europe")
+  enabled       Boolean     @default(true)
+  scheduleHours Int         @default(6)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  runs          SourceRun[]
+  rawJobs       RawJob[]
+
+  @@map("keywords")
+}
+
+model Source {
+  id        String      @id @default(uuid())
+  name      String      @unique // "linkedin-apify" or scraper domain e.g. "reed.co.uk"
+  type      SourceType  @default(SCRAPER)
+  country   String?
+  website   String?
+  enabled   Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  runs      SourceRun[]
+
+  @@map("sources")
+}
+
+model SourceRun {
+  id            String     @id @default(uuid())
+  sourceId      String
+  source        Source     @relation(fields: [sourceId], references: [id])
+  keywordId     String?
+  keyword       Keyword?   @relation(fields: [keywordId], references: [id])
+  runType       String     @default("scheduled") // scheduled | manual
+  status        RunStatus  @default(QUEUED)
+  itemsFetched  Int        @default(0)
+  itemsNew      Int        @default(0)
+  itemsDup      Int        @default(0)
+  itemsFiltered Int        @default(0)
+  itemsFailed   Int        @default(0)
+  error         String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime   @default(now())
+  rawJobs       RawJob[]
+
+  @@index([sourceId, status])
+  @@index([keywordId, status])
+  @@index([createdAt])
+  @@map("source_runs")
+}
+
+model Company {
+  id             String     @id @default(uuid())
+  name           String
+  normalizedName String     @unique
+  domain         String?
+  country        String?
+  aliases        String[]   @default([])
+  needsRecalc    Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  jobs           CleanJob[]
+  intelligence   CompanyIntelligence?
+  outreachEmails OutreachEmail[]
+
+  @@map("companies")
+}
+
+model OutreachEmail {
+  id            String   @id @default(uuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subject       String
+  body          String   @db.Text
+  status        String   @default("draft") // draft | sent | done
+  model         String?
+  promptVersion String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([companyId])
+  @@map("outreach_emails")
+}
+
+model CompanyIntelligence {
+  id                   String   @id @default(uuid())
+  companyId            String   @unique
+  company              Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  activeJobs           Int      @default(0)
+  jobs7d               Int      @default(0)
+  jobs30d              Int      @default(0)
+  topTechnologies      String[] @default([])
+  notableRoles         String[] @default([])
+  avgRelevance         Float?
+  avgOutsourcing       Float?
+  likelyInitiative     String?
+  recommendedServices  String[] @default([])
+  evidence             String[] @default([])
+  summary              String?  @db.Text
+  score                Float?
+  scoreBreakdown       Json?
+  scoreExplanation     String?  @db.Text
+  formulaVersion       String?
+  model                String?
+  recalculatedAt       DateTime @default(now())
+
+  @@map("company_intelligence")
+}
+
 model RawJob {
-  id             String    @id @default(uuid())
+  id             String      @id @default(uuid())
   jobId          String
   jobTitle       String
-  jobDescription String    @db.Text
+  jobDescription String      @db.Text
   companyName    String
-  companyId      String?
+  companyId      String? // Source-provided company id (Apify)
   companyUrl     String?
   location       String?
   country        String
   searchString   String
-  source         String    @default("apify")
+  source         String      @default("apify")
+  keywordId      String?
+  keyword        Keyword?    @relation(fields: [keywordId], references: [id])
+  sourceRunId    String?
+  sourceRun      SourceRun?  @relation(fields: [sourceRunId], references: [id])
+  canonicalJobId String?
+  canonicalJob   CleanJob?   @relation("Occurrences", fields: [canonicalJobId], references: [id], onDelete: SetNull)
+  url            String?
   publishedAt    DateTime?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime    @default(now())
 
-  cleanJob       CleanJob?
+  cleanJob       CleanJob?   @relation("CleanOrigin") // The canonical job this raw record created (origin)
 
   @@unique([jobId, country])
   @@index([country])
   @@index([companyName])
+  @@index([canonicalJobId])
+  @@index([keywordId])
+  @@index([sourceRunId])
   @@map("raw_jobs")
 }
 
 model CleanJob {
-  id             String    @id @default(uuid())
-  rawJobId       String    @unique
-  rawJob         RawJob    @relation(fields: [rawJobId], references: [id])
-  jobTitle       String
-  jobDescription String    @db.Text
-  companyName    String
-  country        String
-  domain         String?
-  searchString   String
-  aiStatus       AiStatus  @default(PENDING)
-  confidence     Float?
-  aiReason       String?   @db.Text
-  createdAt      DateTime  @default(now())
-  aiProcessedAt  DateTime?
+  id              String          @id @default(uuid())
+  rawJobId        String          @unique
+  rawJob          RawJob          @relation("CleanOrigin", fields: [rawJobId], references: [id], onDelete: Cascade)
+  jobTitle        String
+  jobDescription  String          @db.Text
+  companyName     String
+  companyId       String?
+  company         Company?        @relation(fields: [companyId], references: [id])
+  country         String
+  domain          String?
+  jobHash         String?
+  url             String?
+  lifecycleStatus LifecycleStatus @default(ACTIVE)
+  lastSeenAt      DateTime        @default(now())
+  searchString    String
+  aiStatus        AiStatus        @default(PENDING)
+  aiReason        String?         @db.Text
+  relevanceScore  Int?
+  technologies    String[]        @default([])
+  roleCategory    String?
+  seniority       String?
+  projectType     String?
+  outsourcingPotential Float?
+  summary         String?         @db.Text
+  descriptionFetched Boolean      @default(false) // detail-page description enrichment done
+  aiModel         String?
+  promptVersion   String?
+  createdAt       DateTime        @default(now())
+  aiProcessedAt   DateTime?
+  rawOccurrences  RawJob[]        @relation("Occurrences")
 
   @@index([aiStatus])
-  @@index([confidence])
+  @@index([relevanceScore])
   @@index([companyName])
   @@index([country])
+  @@index([jobHash])
+  @@index([companyId, lifecycleStatus, lastSeenAt])
+  @@index([lifecycleStatus, lastSeenAt])
   @@map("clean_jobs")
 }
