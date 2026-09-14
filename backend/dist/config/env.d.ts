@@ -1,0 +1,27 @@
+import 'dotenv/config';
+export declare const env: {
+    DATABASE_URL: string;
+    REDIS_URL: string;
+    OPENAI_API_KEY: string;
+    APIFY_API_TOKEN: string;
+    APIFY_ACTOR_ID: string;
+    APIFY_MAX_ITEMS: number;
+    PORT: number;
+    NODE_ENV: "development" | "production" | "test";
+    SCRAPER_PYTHON: string;
+    COUNTRY_SCRAPE_CONCURRENCY: number;
+    COUNTRY_SCRAPE_TIMEOUT_MS: number;
+    SCHEDULER_CRON_PATTERN: string;
+    SOURCE_FETCH_CONCURRENCY: number;
+    COMPANY_INTEL_CONCURRENCY: number;
+    RECALC_DEBOUNCE_MS: number;
+    MIN_JOB_RELEVANCE: number;
+    JOB_STALE_DAYS: number;
+    SCORE_WEIGHT_RELEVANCE: number;
+    SCORE_WEIGHT_VOLUME: number;
+    SCORE_WEIGHT_VELOCITY: number;
+    SCORE_WEIGHT_OUTSOURCING: number;
+    DESC_ENRICH_CONCURRENCY: number;
+    DESC_ENRICH_BATCH: number;
+    DESC_ENRICH_TIMEOUT_MS: number;
+};

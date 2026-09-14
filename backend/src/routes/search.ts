@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { ingestionQueue } from '../lib/queue.js';
 import { logger } from '../lib/logger.js';
+import { findOrCreateKeyword, findOrCreateSource, createRunForPair } from '../services/scheduler.service.js';
 
 export const searchRouter = Router();
 
 const SearchBody = z.object({
-  keyword: z.string().min(1).max(100).trim(),
-  location: z.string().min(1).max(100).trim(),
+  keyword: z.string().trim().min(1).max(80),
+  location: z.string().trim().max(120).optional(),
 });
 
 searchRouter.post('/', async (req: Request, res: Response) => {
@@ -22,20 +22,28 @@ searchRouter.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  const { keyword, location } = parsed.data;
+  const { keyword: term, location } = parsed.data;
 
-  await ingestionQueue.add(
-    'ingest',
-    { keyword, location },
-    { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
-  );
+  try {
+    const keyword = await findOrCreateKeyword(term, { location: location ?? null });
+    const source = await findOrCreateSource({
+      name: 'linkedin-apify',
+      type: 'APIFY',
+    });
 
-  logger.info({ keyword, location }, 'Search job queued');
+    const run = await createRunForPair(keyword, source, 'manual');
 
-  res.json({
-    status: 'queued',
-    message: `Search for "${keyword}" in "${location}" is queued. Results will appear in the Jobs tab within a few minutes.`,
-    keyword,
-    location,
-  });
+    logger.info({ keyword: term, location, runId: run?.runId }, 'Search job queued');
+
+    res.json({
+      status: 'queued',
+      message: `Search for "${term}"${location ? ` in "${location}"` : ''} is queued. Results will appear in the Jobs tab within a few minutes.`,
+      keyword: term,
+      location: location ?? '',
+      runId: run?.runId ?? null,
+    });
+  } catch (err) {
+    logger.error({ err }, 'Failed to queue search');
+    res.status(500).json({ error: 'Failed to queue search' });
+  }
 });

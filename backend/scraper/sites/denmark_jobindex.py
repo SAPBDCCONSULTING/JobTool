@@ -37,9 +37,17 @@ async def scrape(page: "Page", keyword: str) -> list[dict]:
                 let title=a.textContent.trim().replace(/\\s+/g,' ');
                 if(!href||seen.has(href)||skip.test(title)||title.length<8) return;
                 seen.add(href);
-                const card=a.closest('.PaidJob,[class*="PaidJob"]')||a.parentElement;
+                const card=a.closest('.PaidJob, .PaidJob-inner, .jix_robotjob');
+                const logo=card?card.querySelector('img[alt]'):null;
                 const companyEl=card?card.querySelector('a[href*="/virksomhed/"]'):null;
-                items.push({title, href, company: companyEl?companyEl.textContent.trim():'Unknown'});
+                const companyDiv=card?card.querySelector('.jix-toolbar-top__company'):null;
+                let company='';
+                if(logo) company=(logo.getAttribute('alt')||'').trim();
+                if(!company && companyEl) company=companyEl.textContent.trim().replace(/\\s+/g,' ');
+                if(!company && companyDiv) company=companyDiv.textContent.trim().replace(/\\s+/g,' ');
+                const areaEl=card?card.querySelector('.jix_robotjob--area'):null;
+                const location=areaEl?areaEl.textContent.trim().replace(/\\s+/g,' ') : '';
+                items.push({title, href, company:(company||'Unknown').trim(), location});
               });
               return items;
             }"""
@@ -51,7 +59,11 @@ async def scrape(page: "Page", keyword: str) -> list[dict]:
             if item["href"] in seen:
                 continue
             seen.add(item["href"])
-            all_jobs.append(job(item["title"], item["href"], item.get("company") or "Unknown"))
+            all_jobs.append(job(
+                item["title"], item["href"],
+                item.get("company") or "Unknown",
+                item.get("location") or "",
+            ))
             new += 1
         if new == 0:
             break

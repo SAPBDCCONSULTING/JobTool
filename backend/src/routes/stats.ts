@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { env } from '../config/env.js';
 
 export const statsRouter = Router();
 
@@ -9,7 +10,7 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
     totalRaw,
     totalClean,
     totalProcessed,
-    highConfidence,
+    relevantJobs,
     pendingCount,
     countriesResult,
     domainsResult,
@@ -18,7 +19,9 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
     prisma.rawJob.count(),
     prisma.cleanJob.count(),
     prisma.cleanJob.count({ where: { aiStatus: 'DONE' } }),
-    prisma.cleanJob.count({ where: { confidence: { gte: 0.7 } } }),
+    prisma.cleanJob.count({
+      where: { aiStatus: 'DONE', relevanceScore: { gte: env.MIN_JOB_RELEVANCE } },
+    }),
     prisma.cleanJob.count({ where: { aiStatus: { in: ['PENDING', 'PROCESSING'] } } }),
     prisma.cleanJob.groupBy({
       by: ['country'],
@@ -36,13 +39,13 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
     prisma.cleanJob.findMany({
       take: 8,
       where: { aiStatus: 'DONE' },
-      orderBy: [{ confidence: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
+      orderBy: [{ relevanceScore: { sort: 'desc', nulls: 'last' } }, { createdAt: 'desc' }],
       select: {
         id: true,
         jobTitle: true,
         companyName: true,
         country: true,
-        confidence: true,
+        relevanceScore: true,
         aiStatus: true,
         domain: true,
         createdAt: true,
@@ -54,7 +57,7 @@ statsRouter.get('/', async (_req: Request, res: Response) => {
     totalRaw,
     totalClean,
     totalProcessed,
-    highConfidence,
+    relevantJobs,
     pendingCount,
     countries: countriesResult.map((c) => ({ name: c.country, count: c._count.id })),
     domains: domainsResult

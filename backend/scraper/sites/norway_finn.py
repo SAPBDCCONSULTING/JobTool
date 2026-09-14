@@ -35,7 +35,9 @@ async def scrape(page: "Page", keyword: str) -> list[dict]:
                 const href=a.href||'', title=a.textContent.trim().replace(/\\s+/g,' ');
                 if(!href||title.length<8||seen.has(href)) return;
                 seen.add(href);
-                const company=(card.querySelector('[class*="company" i]')||{}).textContent||'';
+                const logo=card.querySelector('img[alt]');
+                let company = logo ? (logo.getAttribute('alt')||'') : '';
+                company = company.replace(/ logo$/i,'').trim();
                 const loc=(card.querySelector('[class*="location" i]')||{}).textContent||'';
                 items.push({title, href, company:(company||'Unknown').trim(), location:(loc||'').trim()});
               });

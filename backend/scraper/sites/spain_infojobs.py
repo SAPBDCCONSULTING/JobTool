@@ -35,9 +35,11 @@ async def scrape(page: "Page", keyword: str) -> list[dict]:
                 const href=a.href||'', title=a.textContent.trim().replace(/\\s+/g,' ');
                 if(!href||title.length<8||seen.has(href)) return;
                 seen.add(href);
-                const company=(card.querySelector('[class*="company" i]')||{}).textContent||'';
+                const companyEl=card.querySelector('h3.ij-OfferCardContent-description-subtitle, [class*="subtitle" i], [id^="job-company"]');
+                const company = companyEl ? (companyEl.textContent||'').trim() : '';
                 const loc=(card.querySelector('[class*="location" i]')||{}).textContent||'';
-                items.push({title, href, company:(company||'Unknown').trim(), location:(loc||'').trim()});
+                const dateEl=(card.querySelector('[class*="date" i]')||{}).textContent||'';
+                items.push({title, href, company:(company||'Unknown').trim(), location:(loc||'').trim(), date:(dateEl||'').trim()});
               });
               return items;
             }"""

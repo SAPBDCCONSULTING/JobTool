@@ -1,42 +1,21 @@
 import './config/env.js'; // Validate env vars first
-import express from 'express';
-import cors from 'cors';
+import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
-import { apiRouter } from './routes/index.js';
+import { ensureSources } from './services/scheduler.service.js';
 
-const app = express();
+// ── API-only entry point (npm run dev | npm run start) ──────────────
+// For a combined API + workers process, use main.ts instead.
 
-// ── Middleware ─────────────────────────────────────────────────
-app.use(
-  cors({
-    origin: '*', // Tighten in production to your frontend domain
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }),
-);
-app.use(express.json({ limit: '1mb' }));
+const app = createApp();
 
-// ── Routes ─────────────────────────────────────────────────────
-app.use('/api', apiRouter);
-
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), env: env.NODE_ENV });
+// Seed the source catalog in the background (idempotent).
+ensureSources().catch((err) => {
+  logger.error({ err }, 'Failed to ensure sources at startup');
 });
 
-// 404 handler
-app.use((_req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
-
-// Global error handler
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  logger.error({ err }, 'Unhandled error');
-  res.status(500).json({ error: 'Internal server error' });
-});
-
-// ── Start ──────────────────────────────────────────────────────
 app.listen(env.PORT, () => {
   logger.info(`🚀 API server running on http://localhost:${env.PORT}`);
   logger.info(`   Environment: ${env.NODE_ENV}`);
 });
+

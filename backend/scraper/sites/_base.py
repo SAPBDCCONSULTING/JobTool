@@ -76,6 +76,7 @@ def job(
     company: str = "Unknown",
     location: str = "",
     description: str = "",
+    publishedAt: str = "",
 ) -> dict:
     return {
         "title": title.strip(),
@@ -84,4 +85,6 @@ def job(
         "description": (description or "").strip(),
         "url": url,
         "jobId": url,
+        # ISO timestamp when the source exposes a posting date ("3 days ago" etc.)
+        "publishedAt": (publishedAt or "").strip() or None,
     }

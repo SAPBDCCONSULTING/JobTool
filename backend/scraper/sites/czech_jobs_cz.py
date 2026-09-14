@@ -37,8 +37,13 @@ async def scrape(page: "Page", keyword: str) -> list[dict]:
                 const href=a.href||'', title=a.textContent.trim().replace(/\\s+/g,' ');
                 if(!href||title.length<8||seen.has(href)) return;
                 seen.add(href);
-                const company=(card.querySelector('[class*="company" i]')||{}).textContent||'';
-                items.push({title, href, company:(company||'Unknown').trim()});
+                const logo = card.querySelector('[class*="logo" i] img[alt], .SearchResultCard__logo img, .CompanyLogo img');
+                let company = logo ? (logo.getAttribute('alt')||'').trim() : '';
+                // Footer items: first = company, second = location
+                const footer = [...card.querySelectorAll('.SearchResultCard__footerItem')].map(li => li.textContent.trim().replace(/\\s+/g,' '));
+                const location = footer.length > 1 ? footer[1] : '';
+                if(!company && footer.length) company = footer[0];
+                items.push({title, href, company:(company||'Unknown').trim(), location});
               });
               return items;
             }"""
@@ -50,7 +55,11 @@ async def scrape(page: "Page", keyword: str) -> list[dict]:
             if item["href"] in seen:
                 continue
             seen.add(item["href"])
-            all_jobs.append(job(item["title"], item["href"], item.get("company") or "Unknown"))
+            all_jobs.append(job(
+                item["title"], item["href"],
+                item.get("company") or "Unknown",
+                item.get("location") or "",
+            ))
             new += 1
         if new == 0:
             break
