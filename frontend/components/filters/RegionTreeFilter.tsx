@@ -183,10 +183,6 @@ export function RegionTreeFilter({ selection, onChange }: RegionTreeFilterProps)
           All regions
         </button>
 
-        <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-          Region → Europe → Country → Site
-        </p>
-
         {filteredRegions.map((region) => {
           const regionOpen = query ? true : !!openRegions[region.name];
           const regionActive = isRegionActive(region.name);
