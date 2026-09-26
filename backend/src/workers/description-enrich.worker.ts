@@ -150,6 +150,7 @@ export function createDescriptionEnrichWorker() {
 
 /** Queue the next batch of jobs that need description enrichment. */
 export async function enqueueDescriptionEnrichment(limit = 40): Promise<number> {
+  if (!env.DESC_ENRICH_ENABLED) return 0;
   const cutoff = new Date(Date.now() - env.JOB_STALE_DAYS * 24 * 60 * 60 * 1000);
   // Use char_length (true text length) — a Prisma `lt` on Text would be
   // lexicographic and wrongly include long LinkedIn descriptions.
@@ -183,6 +184,10 @@ export async function enqueueDescriptionEnrichment(limit = 40): Promise<number> 
  * new data arrives after the initial startup enqueue. Idempotent via jobId.
  */
 export async function registerEnrichRepeatable() {
+  if (!env.DESC_ENRICH_ENABLED) {
+    logger.info('Description-enrich disabled (DESC_ENRICH_ENABLED=false)');
+    return;
+  }
   await descEnrichQueue.add(
     'enqueue-pending',
     {},

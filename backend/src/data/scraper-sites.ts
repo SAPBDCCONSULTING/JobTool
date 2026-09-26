@@ -38,6 +38,10 @@ export const SCRAPER_SITES: ScraperSiteSeed[] = [
   { name: 'jobs.ch', country: 'Switzerland', website: 'https://www.jobs.ch', enabled: true },
   { name: 'reed.co.uk', country: 'United Kingdom', website: 'https://www.reed.co.uk', enabled: true },
 
+  // ── North America (United States) ─────────────────────────
+  { name: 'dice.com', country: 'United States', website: 'https://www.dice.com', enabled: true },
+  { name: 'themuse.com', country: 'United States', website: 'https://www.themuse.com', enabled: true },
+
   // ── Anti-bot / closed (disabled but shown in Sources UI) ─
   { name: 'duapune.com', country: 'Albania', website: 'https://www.duapune.com', enabled: false },
   { name: 'vdab.be', country: 'Belgium', website: 'https://www.vdab.be', enabled: false },

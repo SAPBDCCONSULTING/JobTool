@@ -1,4 +1,5 @@
 import { logger } from './lib/logger.js';
+import { env } from './config/env.js';
 import { ensureSources } from './services/scheduler.service.js';
 import { createSourceFetchWorker } from './workers/source-fetch.worker.js';
 import { createCountryScrapeWorker } from './workers/country-scrape.worker.js';
@@ -30,7 +31,7 @@ export async function startWorkers(): Promise<RunningWorkers> {
   const schedulerWorker = createSchedulerWorker();
   const companyIntelWorker = createCompanyIntelWorker();
   const lifecycleWorker = createLifecycleWorker();
-  const descEnrichWorker = createDescriptionEnrichWorker();
+  const descEnrichWorker = env.DESC_ENRICH_ENABLED ? createDescriptionEnrichWorker() : null;
 
   logger.info('✅ source-fetch worker started (queue: source-fetch)');
   logger.info('✅ country-scrape worker started (queue: country-scrape)');
@@ -38,14 +39,20 @@ export async function startWorkers(): Promise<RunningWorkers> {
   logger.info('✅ scheduler worker started (queue: scheduler)');
   logger.info('✅ company-intel worker started (queue: company-intel)');
   logger.info('✅ lifecycle worker started (queue: lifecycle)');
-  logger.info('✅ description-enrich worker started (queue: desc-enrich)');
+  if (descEnrichWorker) {
+    logger.info('✅ description-enrich worker started (queue: desc-enrich)');
+  } else {
+    logger.info('⏸️  description-enrich worker disabled (DESC_ENRICH_ENABLED=false)');
+  }
 
   // Kick off description enrichment for eligible jobs shortly after startup
-  setTimeout(() => {
-    enqueueDescriptionEnrichment().catch((err) =>
-      logger.error({ err }, 'Failed to queue description enrichment'),
-    );
-  }, 30_000);
+  if (descEnrichWorker) {
+    setTimeout(() => {
+      enqueueDescriptionEnrichment().catch((err) =>
+        logger.error({ err }, 'Failed to queue description enrichment'),
+      );
+    }, 30_000);
+  }
 
   const close = async () => {
     await Promise.all([
@@ -55,7 +62,7 @@ export async function startWorkers(): Promise<RunningWorkers> {
       schedulerWorker.close(),
       companyIntelWorker.close(),
       lifecycleWorker.close(),
-      descEnrichWorker.close(),
+      descEnrichWorker ? descEnrichWorker.close() : Promise.resolve(),
     ]);
   };
 

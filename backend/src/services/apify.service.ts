@@ -58,7 +58,7 @@ export async function triggerApifyRun(
     keyword: [keyword],
     location,
     maxItems: env.APIFY_MAX_ITEMS,
-    publishedAt: 'r86400',
+    publishedAt: env.APIFY_PUBLISHED_AT,
     saveOnlyUniqueItems: true,
   };
 
