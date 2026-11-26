@@ -8,6 +8,8 @@ const EnvSchema = z.object({
   APIFY_API_TOKEN: z.string().min(1, 'APIFY_API_TOKEN is required'),
   APIFY_ACTOR_ID: z.string().default('2rJKkhh7vjpX7pvjg'),
   APIFY_MAX_ITEMS: z.coerce.number().default(150),
+  // LinkedIn "posted within" window for the Apify actor (r86400 = 24h, r604800 = 7d, r2592000 = 30d)
+  APIFY_PUBLISHED_AT: z.string().default('r604800'),
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
@@ -25,12 +27,17 @@ const EnvSchema = z.object({
   RECALC_DEBOUNCE_MS: z.coerce.number().default(600_000), // 10 min coalescing window
   MIN_JOB_RELEVANCE: z.coerce.number().default(40), // jobs below this relevance never count toward company metrics/scores
   JOB_STALE_DAYS: z.coerce.number().default(14),
-  SCORE_WEIGHT_RELEVANCE: z.coerce.number().default(30),
-  SCORE_WEIGHT_VOLUME: z.coerce.number().default(25),
-  SCORE_WEIGHT_VELOCITY: z.coerce.number().default(25),
+  SCORE_WEIGHT_RELEVANCE: z.coerce.number().default(60),
+  SCORE_WEIGHT_VOLUME: z.coerce.number().default(10),
+  SCORE_WEIGHT_VELOCITY: z.coerce.number().default(10),
   SCORE_WEIGHT_OUTSOURCING: z.coerce.number().default(20),
 
-  // Description enrichment (detail-page fetch for jobs without descriptions)
+  // Description enrichment (detail-page fetch for jobs without descriptions).
+  // Off by default — it spawns a Chromium browser and adds memory pressure.
+  DESC_ENRICH_ENABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v.toLowerCase() === 'true'),
   DESC_ENRICH_CONCURRENCY: z.coerce.number().default(1),
   DESC_ENRICH_BATCH: z.coerce.number().default(8),
   DESC_ENRICH_TIMEOUT_MS: z.coerce.number().default(300_000),

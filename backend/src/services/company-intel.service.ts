@@ -99,7 +99,7 @@ export async function computeCompanyMetrics(companyId: string): Promise<CompanyM
 // Opportunity score (deterministic, versioned, explainable)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const FORMULA_VERSION = 'opportunity-v1';
+export const FORMULA_VERSION = 'opportunity-v2';
 
 export interface ScoreBreakdown {
   relevance: { value: number; weight: number };
@@ -121,8 +121,10 @@ export function computeOpportunityScore(m: CompanyMetrics): {
   };
 
   const relevance = m.avgRelevance ?? 0;
-  const volume = Math.min(100, m.activeJobs * 25);
-  const velocity = Math.min(100, m.jobs7d * 25 + m.jobs30d * 8);
+  // Volume/velocity saturate fast (≈3 roles = full marks) so a single,
+  // highly-relevant role is NOT penalised for low counts. Relevance leads.
+  const volume = Math.min(100, m.activeJobs * 34);
+  const velocity = Math.min(100, m.jobs7d * 34 + m.jobs30d * 4);
   const outsourcing = Math.round((m.avgOutsourcing ?? 0) * 100);
 
   const breakdown: ScoreBreakdown = {
@@ -174,7 +176,7 @@ const CompanyIntelSchema = z.object({
 
 export type CompanyIntelResult = z.infer<typeof CompanyIntelSchema>;
 
-export const COMPANY_PROMPT_VERSION = 'company-intel-v2';
+export const COMPANY_PROMPT_VERSION = 'company-intel-v3';
 export const COMPANY_MODEL = 'gpt-4o-mini';
 
 const companyAgent = new Agent({
@@ -194,7 +196,8 @@ Respond with ONLY a valid JSON object:
 
 Rules:
 - recommended_services: max 4, concrete consulting services matching the hiring signals.
-- evidence: max 5 items, each referencing the metrics (counts, technologies, role types).
+- Prioritise relevance and commercial fit over raw hiring volume: even a SINGLE highly-relevant SAP/ERP/Cloud/Data role signals a real sales opportunity. Job count is only a secondary signal — do not discount a company just because it has few roles.
+- evidence: max 5 items, referencing relevance, specific technologies and role types (not merely counts).
 - Base everything on the provided metrics. Do not invent facts.`,
   outputType: CompanyIntelSchema,
 });
